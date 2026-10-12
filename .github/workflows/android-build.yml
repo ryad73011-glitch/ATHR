@@ -1,0 +1,46 @@
+name: Android Build (EAS)
+
+on:
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: "EAS profile (preview=APK, production=AAB)"
+        required: false
+        default: "preview"
+        type: choice
+        options: [preview, production]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install deps
+        run: npm ci --no-audit --no-fund
+      - name: Setup EAS
+        run: npm install -g eas-cli
+      - name: Build on Expo servers
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          eas build --platform android --profile ${{ inputs.profile }} --non-interactive --json > build.json || true
+          cat build.json
+      - name: Download artifact
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          EXT="${{ inputs.profile }}"
+          EXT="$([ "$EXT" = "production" ] && echo aab || echo apk)"
+          URL=$(node -e "const j=require('./build.json');const b=Array.isArray(j)?j[0]:j;console.log(b.artifacts?.applicationArchiveUrl||b.artifactUrl||'')")
+          if [ -n "$URL" ]; then curl -L "$URL" -o "athr-android.$EXT"; fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: athr-android
+          path: apps/mobile/athr-android.*

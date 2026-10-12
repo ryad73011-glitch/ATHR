@@ -1,0 +1,42 @@
+name: iOS Build (EAS)
+
+on:
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: "EAS profile"
+        required: false
+        default: "production"
+        type: choice
+        options: [preview, production]
+      submit:
+        description: "Submit to TestFlight after build"
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install deps
+        run: npm ci --no-audit --no-fund
+      - name: Setup EAS
+        run: npm install -g eas-cli
+      # iOS builds run on Expo's macOS servers; no local Mac required.
+      - name: Build
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: eas build --platform ios --profile ${{ inputs.profile }} --non-interactive
+      - name: Submit to TestFlight
+        if: ${{ inputs.submit }}
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: eas submit --platform ios --profile production --non-interactive

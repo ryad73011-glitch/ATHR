@@ -1,0 +1,94 @@
+{
+  "expo": {
+    "name": "ATHR — أثر",
+    "slug": "athr",
+    "scheme": "athr",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "backgroundColor": "#0B0B0C",
+    "primaryColor": "#0B0B0C",
+    "assetBundlePatterns": ["**/*"],
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0B0B0C"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.athr.app",
+      "buildNumber": "1",
+      "appleTeamId": "YOUR_APPLE_TEAM_ID",
+      "infoPlist": {
+        "NSCameraUsageDescription": "ATHR uses the camera to photograph clothing for your wardrobe and for AI styling.",
+        "NSPhotoLibraryUsageDescription": "ATHR reads photos you select to add clothing items to your wardrobe.",
+        "NSPhotoLibraryAddUsageDescription": "ATHR saves look cards and battle results you choose to export.",
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "config": {
+        "usesNonExemptEncryption": false
+      },
+      "entitlements": {}
+    },
+    "android": {
+      "package": "com.athr.app",
+      "versionCode": 1,
+      "edgeToEdgeEnabled": true,
+      "adaptiveIcon": {
+        "backgroundColor": "#0B0B0C",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "permissions": ["CAMERA", "READ_MEDIA_IMAGES", "READ_EXTERNAL_STORAGE"],
+      "softwareKeyboardLayoutMode": "resize",
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single",
+      "favicon": "./assets/favicon.png"
+    },
+    "locales": {
+      "en": "./src/i18n/locales/en.json",
+      "ar": "./src/i18n/locales/ar.json",
+      "fr": "./src/i18n/locales/fr.json"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-localization",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "ATHR reads photos you select to add clothing items to your wardrobe.",
+          "cameraPermission": "ATHR uses the camera to photograph clothing for your wardrobe and for AI styling."
+        }
+      ],
+      "expo-secure-store",
+      [
+        "expo-notifications",
+        {
+          "color": "#0B0B0C",
+          "sounds": []
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "minSdkVersion": 24
+          }
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": false
+    },
+    "extra": {
+      "athr": {
+        "demoModeFallback": true
+      }
+    }
+  }
+}

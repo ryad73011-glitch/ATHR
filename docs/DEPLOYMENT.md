@@ -11,6 +11,17 @@
 * **Local**: requires JDK 17 + Android SDK; `eas build --local` or `npx expo run:android`.
   *Not available in the authoring sandbox (no JDK/SDK) — see STATUS.md.*
 
+### Supplying live env to EAS (optional)
+`eas.json` intentionally carries **no** Supabase secrets so the APK can be built and the demo
+launched with zero credentials. When you want a *live* build, create EAS secrets and expose them
+per profile on the Expo dashboard (Project → Environments), or via CLI:
+```bash
+eas secret:create --name EXPO_PUBLIC_SUPABASE_URL --value https://YOUR-ref.supabase.co --type string
+eas secret:create --name EXPO_PUBLIC_SUPABASE_ANON_KEY --value YOUR_ANON_KEY --type string
+```
+Then set those variable names in the profile's `env` on the Expo dashboard (not committed here).
+The app falls back to demo mode automatically whenever these are absent.
+
 ## iOS
 * `.github/workflows/ios-build.yml` builds on Expo macOS servers; `eas submit` to TestFlight.
   Needs Apple credentials (stored securely by EAS). Not runnable without an Apple account.

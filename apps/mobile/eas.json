@@ -6,11 +6,7 @@
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal",
-      "env": {
-        "EXPO_PUBLIC_SUPABASE_URL": "@supabase_url",
-        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "@supabase_anon_key"
-      }
+      "distribution": "internal"
     },
     "preview": {
       "distribution": "internal",
@@ -19,21 +15,13 @@
       },
       "ios": {
         "simulator": true
-      },
-      "env": {
-        "EXPO_PUBLIC_SUPABASE_URL": "@supabase_url",
-        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "@supabase_anon_key"
       }
     },
     "production": {
       "android": {
         "buildType": "app-bundle"
       },
-      "autoIncrement": true,
-      "env": {
-        "EXPO_PUBLIC_SUPABASE_URL": "@supabase_url",
-        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "@supabase_anon_key"
-      }
+      "autoIncrement": true
     }
   },
   "submit": {

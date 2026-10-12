@@ -1,0 +1,5 @@
+{
+  "NSCameraUsageDescription": "ATHR utilise l’appareil photo pour photographier vos vêtements et pour le stylisme IA.",
+  "NSPhotoLibraryUsageDescription": "ATHR lit les photos que vous sélectionnez pour ajouter des articles à votre garde-robe.",
+  "appTagline": "Ce qui demeure devient ATHR."
+}

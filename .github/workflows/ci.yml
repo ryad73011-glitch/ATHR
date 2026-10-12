@@ -1,10 +1,9 @@
 
-name: ATHR Android APK
+name: ATHR Standalone Android APK
 
 on:
   push:
     branches: [main, "arena/**"]
-  pull_request:
   workflow_dispatch:
 
 jobs:
@@ -31,6 +30,12 @@ jobs:
           cache: npm
           cache-dependency-path: apps/mobile/package-lock.json
 
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
       - name: Install dependencies
         working-directory: apps/mobile
         run: npm ci --no-audit --no-fund
@@ -43,21 +48,29 @@ jobs:
         working-directory: apps/mobile
         run: npx jest --ci
 
+      - name: Export standalone Android bundle
+        working-directory: apps/mobile
+        env:
+          NODE_ENV: production
+        run: npx expo export --platform android
+
       - name: Generate Android native project
         working-directory: apps/mobile
         run: npx expo prebuild --platform android --no-install
 
-      - name: Build debug APK
+      - name: Build Release APK
         working-directory: apps/mobile/android
+        env:
+          NODE_ENV: production
         run: |
           chmod +x gradlew
-          ./gradlew assembleDebug
+          ./gradlew --no-daemon assembleRelease
 
-      - name: Upload APK
+      - name: Upload Release APK
         uses: actions/upload-artifact@v4
         with:
-          name: ATHR-debug-APK
-          path: apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk
+          name: ATHR-standalone-APK
+          path: apps/mobile/android/app/build/outputs/apk/release/*.apk
           if-no-files-found: error
           retention-days: 7
           

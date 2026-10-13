@@ -1,6 +1,7 @@
 name: Workflow Syntax Test
 
-on: workflow_dispatch
+on:
+workflow_dispatch:
 
 jobs:
 test:

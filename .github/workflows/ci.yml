@@ -2,16 +2,11 @@ name: ATHR Android APK
 
 on:
 push:
-branches: [main, "arena/**"]
+branches:
+- main
+- "arena/**"
 pull_request:
 workflow_dispatch:
-
-permissions:
-contents: read
-
-concurrency:
-group: athr-android-${{ github.ref }}
-cancel-in-progress: true
 
 jobs:
 mobile:
@@ -39,10 +34,6 @@ steps:
     working-directory: apps/mobile
     run: npm ci --no-audit --no-fund
 
-  - name: Check Expo environment
-    working-directory: apps/mobile
-    run: npx expo --version
-
   - name: Typecheck
     working-directory: apps/mobile
     run: npx tsc --noEmit
@@ -61,16 +52,11 @@ steps:
       chmod +x gradlew
       ./gradlew --no-daemon assembleDebug
 
-  - name: Verify APK exists
+  - name: Verify APK
     shell: bash
     run: |
       APK="apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk"
-
-      if [ ! -s "$APK" ]; then
-        echo "::error::APK was not generated or is empty."
-        exit 1
-      fi
-
+      test -s "$APK"
       ls -lh "$APK"
       sha256sum "$APK"
 

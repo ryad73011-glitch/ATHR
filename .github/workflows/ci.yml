@@ -1,54 +1,83 @@
-
 name: ATHR Android APK
 
 on:
-  push:
-    branches: [main, "arena/**"]
-  pull_request:
-  workflow_dispatch:
+push:
+branches: [main, "arena/**"]
+pull_request:
+workflow_dispatch:
+
+permissions:
+contents: read
+
+concurrency:
+group: athr-android-${{ github.ref }}
+cancel-in-progress: true
 
 jobs:
-  mobile:
-    runs-on: ubuntu-latest
+mobile:
+runs-on: ubuntu-latest
+timeout-minutes: 45
 
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+steps:
+  - name: Checkout
+    uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: apps/mobile/package-lock.json
+  - name: Setup Node
+    uses: actions/setup-node@v4
+    with:
+      node-version: 22
+      cache: npm
+      cache-dependency-path: apps/mobile/package-lock.json
 
-      - name: Install dependencies
-        working-directory: apps/mobile
-        run: npm ci --no-audit --no-fund
+  - name: Setup Java
+    uses: actions/setup-java@v4
+    with:
+      distribution: temurin
+      java-version: "17"
 
-      - name: Typecheck
-        working-directory: apps/mobile
-        run: npx tsc --noEmit
+  - name: Install dependencies
+    working-directory: apps/mobile
+    run: npm ci --no-audit --no-fund
 
-      - name: Unit tests
-        working-directory: apps/mobile
-        run: npx jest --ci
+  - name: Check Expo environment
+    working-directory: apps/mobile
+    run: npx expo --version
 
-      - name: Generate Android native project
-        working-directory: apps/mobile
-        run: npx expo prebuild --platform android --no-install
+  - name: Typecheck
+    working-directory: apps/mobile
+    run: npx tsc --noEmit
 
-      - name: Build debug APK
-        working-directory: apps/mobile/android
-        run: |
-          chmod +x gradlew
-          ./gradlew assembleDebug
+  - name: Unit tests
+    working-directory: apps/mobile
+    run: npx jest --ci
 
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: ATHR-debug-APK
-          path: apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk
-          if-no-files-found: error
-          retention-days: 7
-          
+  - name: Generate Android native project
+    working-directory: apps/mobile
+    run: npx expo prebuild --platform android --no-install
+
+  - name: Build debug APK
+    working-directory: apps/mobile/android
+    run: |
+      chmod +x gradlew
+      ./gradlew --no-daemon assembleDebug
+
+  - name: Verify APK exists
+    shell: bash
+    run: |
+      APK="apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk"
+
+      if [ ! -s "$APK" ]; then
+        echo "::error::APK was not generated or is empty."
+        exit 1
+      fi
+
+      ls -lh "$APK"
+      sha256sum "$APK"
+
+  - name: Upload APK
+    uses: actions/upload-artifact@v4
+    with:
+      name: ATHR-debug-APK
+      path: apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk
+      if-no-files-found: error
+      retention-days: 7

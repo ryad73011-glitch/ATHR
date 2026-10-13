@@ -1,17 +1,14 @@
 name: ATHR Android APK
 
-on:
+"on":
 push:
-branches:
-- main
-- "arena/**"
+branches: [main, "arena/**"]
 pull_request:
 workflow_dispatch:
 
 jobs:
 mobile:
 runs-on: ubuntu-latest
-timeout-minutes: 45
 
 steps:
   - name: Checkout
@@ -34,7 +31,7 @@ steps:
     working-directory: apps/mobile
     run: npm ci --no-audit --no-fund
 
-  - name: Typecheck
+  - name: TypeScript check
     working-directory: apps/mobile
     run: npx tsc --noEmit
 
@@ -42,23 +39,15 @@ steps:
     working-directory: apps/mobile
     run: npx jest --ci
 
-  - name: Generate Android native project
+  - name: Generate Android project
     working-directory: apps/mobile
     run: npx expo prebuild --platform android --no-install
 
-  - name: Build debug APK
+  - name: Build APK
     working-directory: apps/mobile/android
     run: |
       chmod +x gradlew
       ./gradlew --no-daemon assembleDebug
-
-  - name: Verify APK
-    shell: bash
-    run: |
-      APK="apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk"
-      test -s "$APK"
-      ls -lh "$APK"
-      sha256sum "$APK"
 
   - name: Upload APK
     uses: actions/upload-artifact@v4

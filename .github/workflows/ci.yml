@@ -51,16 +51,23 @@ jobs:
         working-directory: apps/mobile
         env:
           NODE_ENV: production
+          EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
         run: npx expo export --platform android
 
       - name: Generate Android native project
         working-directory: apps/mobile
+        env:
+          EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
         run: npx expo prebuild --platform android --no-install
 
       - name: Build Release APK
         working-directory: apps/mobile/android
         env:
           NODE_ENV: production
+          EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
         run: |
           chmod +x gradlew
           ./gradlew --no-daemon assembleRelease -x lintVitalRelease
@@ -72,4 +79,3 @@ jobs:
           path: apps/mobile/android/app/build/outputs/apk/release/*.apk
           if-no-files-found: error
           retention-days: 7
-          

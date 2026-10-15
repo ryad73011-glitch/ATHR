@@ -800,7 +800,7 @@ export function createSupabaseSource(env: SupabaseEnv): DataSource {
     async adminSetMerchantApproval(id, approved) {
       const { data, error } = await sb
         .from('merchants')
-        .update({ aproved, verified: approved })
+        .update({ approved, verified: approved })
         .eq('id', id)
         .select()
         .single();

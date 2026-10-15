@@ -102,7 +102,6 @@ async updatePassword(password) {
   if (error) throw new Error(error.message);
 },
 
-async signUp(input) {
     async signUp(input) {
       const { data, error } = await sb.auth.signUp({
         email: input.email,

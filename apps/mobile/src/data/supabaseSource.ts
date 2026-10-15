@@ -85,6 +85,17 @@ export function createSupabaseSource(env: SupabaseEnv): DataSource {
       };
     },
 
+    async resetPasswordForEmail(email) {
+      const { error } = await sb.auth.resetPasswordForEmail(
+        email.trim(),
+        {
+          redirectTo: AUTH_CALLBACK_URL,
+        },
+      );
+
+      if (error) throw new Error(error.message);
+    },
+
     async signUp(input) {
       const { data, error } = await sb.auth.signUp({
         email: input.email,

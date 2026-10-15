@@ -220,6 +220,10 @@ export const demoSource: DataSource = {
     );
   },
 
+  async updatePassword(_password) {
+    throw new Error('Password update is available only in live mode.');
+  },
+
   async signUp(input) {
     await load();
     await delay(300);

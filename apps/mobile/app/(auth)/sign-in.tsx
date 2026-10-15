@@ -81,7 +81,7 @@ export default function SignIn() {
             muted
             onPress={() => router.push('/(auth)/forgot-password')}
           >
-            نسيت كلمة المرور؟
+            Forgot password? / نسيت كلمة المرور؟
           </Text>
         </View>
       ) : null}

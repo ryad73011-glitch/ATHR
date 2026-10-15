@@ -43,6 +43,7 @@ mode: 'demo' | 'live';
 getSession(): Promise<AuthSession | null>;
 signIn(email: string, password: string): Promise<AuthSession>;
 resetPasswordForEmail(email: string): Promise<void>;
+updatePassword(password: string): Promise<void>;
 signUp(input: {
 email: string;
 password: string;

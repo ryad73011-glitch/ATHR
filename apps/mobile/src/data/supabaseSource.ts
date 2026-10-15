@@ -89,7 +89,7 @@ export function createSupabaseSource(env: SupabaseEnv): DataSource {
       const { error } = await sb.auth.resetPasswordForEmail(
         email.trim(),
         {
-          redirectTo: AUTH_CALLBACK_URL,
+          redirectTo: `${AUTH_CALLBACK_URL}?flow=recovery`,
         },
       );
 

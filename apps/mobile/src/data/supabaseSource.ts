@@ -800,4 +800,35 @@ export function createSupabaseSource(env: SupabaseEnv): DataSource {
     async adminSetMerchantApproval(id, approved) {
       const { data, error } = await sb
         .from('merchants')
-        .update({ app
+        .update({ aproved, verified: approved })
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw new Error(error.message);
+      return data;
+    },
+
+    async adminListAudit() {
+      const { data, error } = await sb
+        .from('audit_logs')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(200);
+      if (error) throw new Error(error.message);
+      return data ?? [];
+    },
+
+    async adminListUsers() {
+      const { data, error } = await sb
+        .from('profiles')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (error) throw new Error(error.message);
+      return data ?? [];
+    },
+  };
+}
+
+export type { Paged, ProductFilter, LookFilter, StudioRequest };
+    

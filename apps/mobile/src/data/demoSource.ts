@@ -214,6 +214,12 @@ export const demoSource: DataSource = {
     return session;
   },
 
+  async resetPasswordForEmail(_email) {
+    throw new Error(
+      'Password reset is available only in live mode.',
+    );
+  },
+
   async signUp(input) {
     await load();
     await delay(300);

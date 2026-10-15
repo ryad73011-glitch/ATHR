@@ -74,7 +74,6 @@ export default function SignIn() {
         secureTextEntry
       />
 
-      {isLive ? (
         <View style={{ marginTop: spacing.sm }}>
           <Text
             variant="small"
@@ -84,7 +83,6 @@ export default function SignIn() {
             Forgot password? / نسيت كلمة المرور؟
           </Text>
         </View>
-      ) : null}
 
       {error ? (
         <Text

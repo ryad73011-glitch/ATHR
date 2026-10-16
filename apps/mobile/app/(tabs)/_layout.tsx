@@ -1,3 +1,4 @@
+
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 import React from 'react';
@@ -19,24 +20,68 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
+        tabBarHideOnKeyboard: true,
         tabBarActiveTintColor: tokens.accent,
         tabBarInactiveTintColor: tokens.textFaint,
         tabBarStyle: {
           backgroundColor: tokens.bgSunken,
           borderTopColor: tokens.border,
           borderTopWidth: 1,
-          height: 64,
+          height: 68,
           paddingBottom: 8,
-          paddingTop: 6,
+          paddingTop: 7,
+          elevation: 12,
+          shadowColor: '#000000',
+          shadowOpacity: 0.16,
+          shadowRadius: 16,
+          shadowOffset: { width: 0, height: -4 },
         },
-        tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
+        tabBarItemStyle: {
+          marginHorizontal: 4,
+          marginVertical: 4,
+          borderRadius: 12,
+        },
+        tabBarLabelStyle: {
+          fontSize: 11,
+          fontWeight: '600',
+        },
       }}
     >
-      <Tabs.Screen name="index" options={{ title: t('nav.home'), tabBarIcon: icon('home-outline') }} />
-      <Tabs.Screen name="looks" options={{ title: t('nav.looks'), tabBarIcon: icon('grid-outline') }} />
-      <Tabs.Screen name="faceoff" options={{ title: t('nav.faceoff'), tabBarIcon: icon('flash-outline') }} />
-      <Tabs.Screen name="studio" options={{ title: t('nav.studio'), tabBarIcon: icon('sparkles-outline') }} />
-      <Tabs.Screen name="profile" options={{ title: t('nav.profile'), tabBarIcon: icon('person-outline') }} />
+      <Tabs.Screen
+        name="index"
+        options={{
+          title: t('nav.home'),
+          tabBarIcon: icon('home-outline'),
+        }}
+      />
+      <Tabs.Screen
+        name="looks"
+        options={{
+          title: t('nav.looks'),
+          tabBarIcon: icon('grid-outline'),
+        }}
+      />
+      <Tabs.Screen
+        name="faceoff"
+        options={{
+          title: t('nav.faceoff'),
+          tabBarIcon: icon('flash-outline'),
+        }}
+      />
+      <Tabs.Screen
+        name="studio"
+        options={{
+          title: t('nav.studio'),
+          tabBarIcon: icon('sparkles-outline'),
+        }}
+      />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: t('nav.profile'),
+          tabBarIcon: icon('person-outline'),
+        }}
+      />
     </Tabs>
   );
 }

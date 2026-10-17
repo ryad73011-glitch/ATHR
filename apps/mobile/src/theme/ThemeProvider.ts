@@ -1,8 +1,25 @@
-import { createContext, createElement, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+  createContext,
+  createElement,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 import { Platform, useColorScheme } from 'react-native';
-import { darkTokens, fontFamilies, lightTokens, type ThemeTokens } from './tokens';
+import {
+  darkTokens,
+  fontFamilies,
+  lightTokens,
+  type ThemeTokens,
+} from './tokens';
 
 export type ThemeMode = 'dark' | 'light' | 'system';
+
+const THEME_STORAGE_KEY = '@athr/theme-mode';
 
 interface ThemeContextValue {
   tokens: ThemeTokens;
@@ -22,26 +39,56 @@ export interface ThemeProviderProps {
   children: React.ReactNode;
 }
 
-/**
- * Provides colour tokens + typography. Typography resolves to the Arabic
- * families automatically when RTL is on, which keeps every text component
- * free of per-screen font branching.
- */
-export function ThemeProvider({ initialMode = 'dark', onModeChange, children }: ThemeProviderProps) {
+function isThemeMode(value: string | null): value is ThemeMode {
+  return value === 'dark' || value === 'light' || value === 'system';
+}
+
+export function ThemeProvider({
+  initialMode = 'dark',
+  onModeChange,
+  children,
+}: ThemeProviderProps) {
   const system = useColorScheme();
   const [mode, setModeState] = useState<ThemeMode>(initialMode);
-  // ATHR ships dark-first; RTL follows the active locale (set by the i18n layer).
-  const [isRTL, setIsRTL] = useState<boolean>(false);
+  const [isRTL, setIsRTL] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+
+    AsyncStorage.getItem(THEME_STORAGE_KEY)
+      .then((savedMode) => {
+        if (active && isThemeMode(savedMode)) {
+          setModeState(savedMode);
+        }
+      })
+      .catch(() => {
+        // Keep the default mode if local storage is unavailable.
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const setMode = useCallback(
     (next: ThemeMode) => {
       setModeState(next);
       onModeChange?.(next);
+
+      void AsyncStorage.setItem(THEME_STORAGE_KEY, next).catch(() => {
+        // The theme still changes for the current session.
+      });
     },
     [onModeChange],
   );
 
-  const resolved: 'dark' | 'light' = mode === 'system' ? (system === 'light' ? 'light' : 'dark') : mode;
+  const resolved: 'dark' | 'light' =
+    mode === 'system'
+      ? system === 'light'
+        ? 'light'
+        : 'dark'
+      : mode;
+
   const tokens = resolved === 'dark' ? darkTokens : lightTokens;
 
   useEffect(() => {
@@ -68,18 +115,25 @@ export function ThemeProvider({ initialMode = 'dark', onModeChange, children }: 
   );
 
   const value = useMemo<ThemeContextValue>(
-    () => ({ tokens, mode, resolved, setMode, fonts, isRTL, setRTL: setIsRTL }),
+    () => ({
+      tokens,
+      mode,
+      resolved,
+      setMode,
+      fonts,
+      isRTL,
+      setRTL: setIsRTL,
+    }),
     [tokens, mode, resolved, setMode, fonts, isRTL],
   );
 
-  // createElement keeps this file .ts (no JSX) so it can be imported from tests.
   return createElement(ThemeContext.Provider, { value }, children);
 }
 
 export function useTheme(): ThemeContextValue {
   const ctx = useContext(ThemeContext);
+
   if (!ctx) {
-    // Safe fallback so isolated component tests do not crash.
     return {
       tokens: darkTokens,
       mode: 'dark',
@@ -90,6 +144,7 @@ export function useTheme(): ThemeContextValue {
       setRTL: () => undefined,
     };
   }
+
   return ctx;
 }
 

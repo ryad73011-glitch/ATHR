@@ -14,7 +14,7 @@ site_url = "http://localhost:8081"
 additional_redirect_urls = ["athr://", "https://*.e2b.app"]
 
 [functions.ai-stylist]
-verify_jwt = false
+verify_jwt = true
 
 [functions.create-checkout]
 verify_jwt = true

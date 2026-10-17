@@ -71,6 +71,15 @@ jobs:
           EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
         run: npx expo prebuild --platform android --no-install
 
+      - name: Configure Gradle memory
+        working-directory: apps/mobile/android
+        run: |
+          if grep -q '^org.gradle.jvmargs=' gradle.properties; then
+            sed -i 's|^org.gradle.jvmargs=.*|org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8|' gradle.properties
+          else
+            echo 'org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8' >> gradle.properties
+          fi
+
       - name: Build Release APK
         working-directory: apps/mobile/android
         env:
@@ -79,7 +88,7 @@ jobs:
           EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
         run: |
           chmod +x gradlew
-          ./gradlew --no-daemon assembleRelease -x lintVitalRelease
+          ./gradlew --no-daemon --max-workers=2 assembleRelease -x lintVitalRelease
 
       - name: Upload Release APK
         uses: actions/upload-artifact@v4
@@ -88,3 +97,4 @@ jobs:
           path: apps/mobile/android/app/build/outputs/apk/release/*.apk
           if-no-files-found: error
           retention-days: 7
+          

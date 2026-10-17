@@ -46,19 +46,19 @@ function TabIcon({
     return () => animation.stop();
   }, [focused, scale]);
 
-  const iconSize = center ? 29 : focused ? 25 : 22;
+  const iconSize = center ? 32 : focused ? 25 : 22;
 
   return (
     <Animated.View
       style={{
         alignItems: 'center',
         justifyContent: 'center',
-        width: center ? 50 : 34,
-        height: center ? 50 : 32,
-        borderRadius: center ? 25 : 12,
+        width: center ? 54 : 34,
+        height: center ? 54 : 32,
+        borderRadius: center ? 27 : 12,
         backgroundColor: center ? accent : 'transparent',
         transform: [
-          { scale: center ? Animated.multiply(scale, 1.02) : scale },
+          { scale: center ? Animated.multiply(scale, 1.04) : scale },
           { translateY: center ? -5 : 0 },
         ],
       }}
@@ -161,9 +161,9 @@ export default function TabsLayout() {
                 numberOfLines={1}
                 style={{
                   color,
-                  fontSize: 11,
-                  fontWeight: '700',
-                  lineHeight: 14,
+                  fontSize: 12,
+                  fontWeight: '800',
+                  lineHeight: 15,
                 }}
               >
                 وَسْم
@@ -171,10 +171,10 @@ export default function TabsLayout() {
               <Text
                 style={{
                   color: focused ? tokens.accent : tokens.textFaint,
-                  fontSize: 8,
-                  fontWeight: '700',
-                  letterSpacing: 1.2,
-                  lineHeight: 10,
+                  fontSize: 9,
+                  fontWeight: '800',
+                  letterSpacing: 1.4,
+                  lineHeight: 11,
                 }}
               >
                 WASM
@@ -201,4 +201,4 @@ export default function TabsLayout() {
       />
     </Tabs>
   );
-          }
+}

@@ -1,131 +1,101 @@
-import { useMutation } from '@tanstack/react-query';
-import * as ImagePicker from 'expo-image-picker';
-import React, { useRef, useState } from 'react';
-import { ScrollView, View } from 'react-native';
 
-import { ProductRow } from '../../src/components/cards';
-import { Badge, Button, Chip, Header, Input, Screen, Text, useToast } from '../../src/components/ui';
-import { useDataSource } from '../../src/data';
-import type { Occasion, StudioMessage, StudioResult, Universe } from '../../src/data/types';
-import { useLocale } from '../../src/i18n';
-import { useSession } from '../../src/store/session';
-import { spacing } from '../../src/theme/tokens';
-import { useTheme } from '../../src/theme/ThemeProvider';
-
-const OCCASIONS: Occasion[] = ['everyday', 'work', 'evening', 'wedding', 'travel', 'sport', 'street', 'cafe'];
-const PALETTE = ['#E6DFD2', '#C08E52', '#6B7050', '#5A6270', '#2C2E33', '#C4402F', '#8E4A2A', '#B7BCC1'];
-
-export default function Studio() {
-  const source = useDataSource();
-  const { t, locale } = useLocale();
-  const { tokens } = useTheme();
-  const prefs = useSession((s) => s.prefs);
-  const toast = useToast();
-  const scroll = useRef<ScrollView>(null);
-
-  const [occasion, setOccasion] = useState<Occasion>('evening');
-  const [budget, setBudget] = useState(String(prefs?.budget_max ?? 100000));
-  const [universes, setUniverses] = useState<Universe[]>(['CALM']);
-  const [paletteSel, setPaletteSel] = useState<string[]>([]);
-  const [note, setNote] = useState('');
-  const [images, setImages] = useState<string[]>([]);
-  const [messages, setMessages] = useState<StudioMessage[]>([]);
-  const [last, setLast] = useState<StudioResult | null>(null);
-
-  const run = useMutation({
-    mutationFn: () =>
-      source.runStudio({
-        occasion,
-        budget: Number(budget) || 50000,
-        currency: 'DZD',
-        universes: universes.length ? universes : ['CALM', 'CHAOS'],
-        palette: paletteSel,
-        note,
-        image_uris: images,
-      }),
-    onSuccess: (res) => {
-      setMessages((m) => [
-        ...m,
-        { id: `u_${Date.now()}`, role: 'user', content: `${t('studio.occasion')}: ${occasion} · ${t('studio.budget')}: ${budget}`, created_at: new Date().toISOString() },
-        ...res.messages,
-      ]);
-      setLast(res);
-      if (res.degraded_reason) toast.show(t('studio.degraded'));
-      setTimeout(() => scroll.current?.scrollToEnd({ animated: true }), 60);
-    },
-    onError: () => toast.show(t('common.error')),
-  });
-
-  const pick = async () => {
-    const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.6, allowsMultipleSelection: false });
-    if (!res.canceled && res.assets[0]?.uri) setImages((i) => [...i, res.assets[0].uri]);
-  };
-
-  const toggle = <T,>(arr: T[], v: T, set: (x: T[]) => void) => set(arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v]);
-
-  return (
-    <Screen insetBottom>
-      <Header title={t('studio.title')} subtitle={t('studio.subtitle')} />
-      <ScrollView ref={scroll} style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: spacing.xl }}>
-        <Text variant="caption" muted style={{ marginBottom: spacing.xs }}>
-          {t('studio.occasion')}
-        </Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: spacing.md }}>
-          <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-            {OCCASIONS.map((o) => (
-              <Chip key={o} label={t(`occ.${o}`)} selected={occasion === o} onPress={() => setOccasion(o)} />
-            ))}
+        {/* Budget, palette and chat prompt */}
+        <View style={{ padding: spacing.lg, borderRadius: 20, backgroundColor: tokens.surface, borderWidth: 1, borderColor: tokens.border, marginBottom: spacing.xl }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.md }}>
+            <Ionicons name="options-outline" size={19} color={tokens.accent} />
+            <Text variant="small" style={{ fontWeight: '800', color: tokens.text }}>Fine-tune your look</Text>
           </View>
-        </ScrollView>
-
-        <Text variant="caption" muted style={{ marginBottom: spacing.xs }}>
-          {t('common.universe')}
-        </Text>
-        <View style={{ flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.md }}>
-          <Chip label={t('calm')} selected={universes.includes('CALM')} color={tokens.calm} onPress={() => toggle(universes, 'CALM', setUniverses)} />
-          <Chip label={t('chaos')} selected={universes.includes('CHAOS')} color={tokens.chaos} onPress={() => toggle(universes, 'CHAOS', setUniverses)} />
+          <Text variant="caption" muted style={{ marginBottom: spacing.sm }}>{t('studio.palette')}</Text>
+          <View style={{ flexDirection: 'row', gap: spacing.sm, flexWrap: 'wrap', marginBottom: spacing.lg }}>
+            {PALETTE.map((color) => {
+              const selected = paletteSel.includes(color);
+              const darkSwatch = color === '#E6DFD2' || color === '#B7BCC1';
+              return (
+                <Pressable
+                  key={color}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Palette ${color}`}
+                  accessibilityState={{ selected }}
+                  onPress={() => toggle(paletteSel, color, setPaletteSel)}
+                  style={{ width: 31, height: 31, borderRadius: 16, backgroundColor: color, borderWidth: selected ? 3 : 1, borderColor: selected ? tokens.accent : tokens.border, alignItems: 'center', justifyContent: 'center' }}
+                >
+                  {selected ? <Ionicons name="checkmark" size={15} color={darkSwatch ? '#111111' : '#FFFFFF'} /> : null}
+                </Pressable>
+              );
+            })}
+          </View>
+          <Input label={`${t('studio.budget')} (DZD)`} value={budget} onChangeText={setBudget} keyboardType="number-pad" />
+          <Input label="Tell WASM what you need" value={note} onChangeText={setNote} placeholder="e.g. a smart-casual outfit for a cool evening" />
         </View>
 
-        <Text variant="caption" muted style={{ marginBottom: spacing.xs }}>
-          {t('studio.palette')}
-        </Text>
-        <View style={{ flexDirection: 'row', gap: spacing.sm, flexWrap: 'wrap', marginBottom: spacing.md }}>
-          {PALETTE.map((c) => (
-            <View key={c} style={{ borderRadius: 999, borderWidth: paletteSel.includes(c) ? 2 : 1, borderColor: paletteSel.includes(c) ? tokens.accent : tokens.border }}>
-              <Chip label="  " onPress={() => toggle(paletteSel, c, setPaletteSel)} color={c} selected={paletteSel.includes(c)} />
+        {/* Image context */}
+        <View style={{ marginBottom: spacing.lg }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.sm }}>
+            <Text variant="small" style={{ fontWeight: '800', color: tokens.text }}>Add a visual reference</Text>
+            <Text variant="caption" muted>03 / 03</Text>
+          </View>
+          <View style={{ padding: spacing.md, borderRadius: 18, borderWidth: 1, borderColor: tokens.border, borderStyle: 'dashed', backgroundColor: tokens.surface }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+              <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: tokens.bgElevated, alignItems: 'center', justifyContent: 'center' }}>
+                <Ionicons name="image-outline" size={22} color={tokens.accent} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text variant="small" style={{ fontWeight: '700', color: tokens.text }}>{t('studio.upload')}</Text>
+                <Text variant="caption" muted>Use a clothing photo to guide your styling</Text>
+              </View>
+              <Button label="Add" variant="outline" icon="add-outline" onPress={pick} small />
             </View>
-          ))}
+            {images.length > 0 ? (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: spacing.md }}>
+                <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+                  {images.map((uri, index) => (
+                    <View key={`${uri}_${index}`} style={{ position: 'relative' }}>
+                      <Image source={{ uri }} style={{ width: 74, height: 88, borderRadius: 12, backgroundColor: tokens.bgElevated }} />
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel="Remove image"
+                        onPress={() => setImages((current) => current.filter((_, currentIndex) => currentIndex !== index))}
+                        style={{ position: 'absolute', right: 4, top: 4, width: 24, height: 24, borderRadius: 12, backgroundColor: tokens.bgElevated, alignItems: 'center', justifyContent: 'center' }}
+                      >
+                        <Ionicons name="close" size={15} color={tokens.text} />
+                      </Pressable>
+                    </View>
+                  ))}
+                </View>
+              </ScrollView>
+            ) : null}
+          </View>
         </View>
 
-        <Input label={`${t('studio.budget')} (DZD)`} value={budget} onChangeText={setBudget} keyboardType="number-pad" />
-        <Input label="Note (optional)" value={note} onChangeText={setNote} placeholder="e.g. I already own a camel coat" />
+        <Button label={run.isPending ? 'WASM is thinking…' : t('studio.generate')} full loading={run.isPending} onPress={() => run.mutate()} icon="sparkles-outline" />
+        <Text variant="caption" muted style={{ textAlign: 'center', marginTop: spacing.sm, marginBottom: spacing.xl }}>
+          ATHR · Your style, your preferences, your budget
+        </Text>
 
-        <View style={{ flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.lg }}>
-          <Button label={t('studio.upload')} variant="outline" icon="camera-outline" onPress={pick} small />
-          {images.length ? <Badge label={`${images.length}`} color={tokens.info} /> : null}
-        </View>
-
-        <Button label={t('studio.generate')} full loading={run.isPending} onPress={() => run.mutate()} icon="sparkles-outline" />
-
-        {messages.map((m) => (
-          <View key={m.id} style={{ marginTop: spacing.lg, alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start', maxWidth: '90%' }}>
-            <View style={{ backgroundColor: m.role === 'user' ? tokens.bgElevated : tokens.surface, borderWidth: 1, borderColor: tokens.border, borderRadius: 14, padding: spacing.md }}>
-              <Text variant="small" style={{ color: m.role === 'user' ? tokens.textMuted : tokens.text }}>
-                {m.content}
+        {/* Conversation and recommended products */}
+        {messages.map((message) => (
+          <View key={message.id} style={{ marginTop: spacing.md, alignSelf: message.role === 'user' ? 'flex-end' : 'flex-start', maxWidth: '92%', flexDirection: 'row', gap: spacing.sm }}>
+            {message.role !== 'user' ? (
+              <View style={{ width: 28, height: 28, borderRadius: 10, backgroundColor: tokens.surface, borderWidth: 1, borderColor: tokens.border, alignItems: 'center', justifyContent: 'center' }}>
+                <Ionicons name="sparkles-outline" size={15} color={tokens.accent} />
+              </View>
+            ) : null}
+            <View style={{ flexShrink: 1, backgroundColor: message.role === 'user' ? tokens.bgElevated : tokens.surface, borderWidth: 1, borderColor: tokens.border, borderRadius: 16, padding: spacing.md }}>
+              <Text variant="caption" style={{ color: message.role === 'user' ? tokens.textMuted : tokens.accent, fontWeight: '800', marginBottom: spacing.xs }}>
+                {message.role === 'user' ? 'YOU' : 'WASM'}
               </Text>
+              <Text variant="small" style={{ lineHeight: 21, color: tokens.text }}>{message.content}</Text>
             </View>
           </View>
         ))}
 
         {last ? (
-          <View style={{ marginTop: spacing.md, gap: spacing.sm }}>
-            <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+          <View style={{ marginTop: spacing.lg, gap: spacing.sm }}>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
               <Badge label={last.engine === 'cloud-ai' ? t('studio.cloud') : t('studio.local')} color={last.engine === 'cloud-ai' ? tokens.info : tokens.warning} />
               {last.model ? <Badge label={last.model} color={tokens.textFaint} /> : null}
             </View>
-            {(last.product_ids ?? []).slice(0, 6).map((id) => (
-              <ProductRowFromId key={id} id={id} />
-            ))}
+            {(last.product_ids ?? []).slice(0, 6).map((id) => <ProductRowFromId key={id} id={id} />)}
           </View>
         ) : null}
       </ScrollView>
@@ -136,9 +106,11 @@ export default function Studio() {
 function ProductRowFromId({ id }: { id: string }) {
   const source = useDataSource();
   const [product, setProduct] = React.useState<import('../../src/data/types').Product | null>(null);
+
   React.useEffect(() => {
-    source.getProduct(id).then(setProduct);
+    source.getProduct(id).then(setProduct).catch(() => setProduct(null));
   }, [id, source]);
+
   if (!product) return null;
   return <ProductRow product={product} />;
 }

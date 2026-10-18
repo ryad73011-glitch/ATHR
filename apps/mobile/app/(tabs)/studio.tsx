@@ -5,6 +5,7 @@ import * as ImagePicker from 'expo-image-picker';
 import React, { useRef, useState } from 'react';
 import {
   Image,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -92,6 +93,23 @@ export default function Studio() {
 
   const scrollRef = useRef<ScrollView>(null);
   const inputRef = useRef<TextInput>(null);
+
+  React.useEffect(() => {
+  const subscription = Keyboard.addListener(
+    'keyboardDidShow',
+    () => {
+      requestAnimationFrame(() => {
+        scrollRef.current?.scrollToEnd({
+          animated: true,
+        });
+      });
+    },
+  );
+
+  return () => {
+    subscription.remove();
+  };
+}, []);
 
   const [draft, setDraft] = useState('');
   const [occasion, setOccasion] =
@@ -220,8 +238,8 @@ export default function Studio() {
 
         <KeyboardAvoidingView
           style={styles.flex}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={0}
         >
           <ScrollView
             ref={scrollRef}
@@ -830,22 +848,29 @@ export default function Studio() {
             </Pressable>
 
             <TextInput
-              ref={inputRef}
-              value={draft}
-              onChangeText={setDraft}
-              placeholder="Message WASM…"
-              placeholderTextColor={tokens.textMuted}
-              selectionColor={tokens.accent}
-              multiline
-              editable={!run.isPending}
-              onSubmitEditing={sendMessage}
-              returnKeyType="send"
-              blurOnSubmit={false}
-              style={[
-                styles.composerInput,
-                { color: tokens.text },
-              ]}
-            />
+  ref={inputRef}
+  value={draft}
+  onChangeText={setDraft}
+  onFocus={() => {
+    requestAnimationFrame(() => {
+      scrollRef.current?.scrollToEnd({
+        animated: true,
+      });
+    });
+  }}
+  placeholder="Message WASM…"
+  placeholderTextColor={tokens.textMuted}
+  selectionColor={tokens.accent}
+  multiline
+  editable={!run.isPending}
+  onSubmitEditing={sendMessage}
+  returnKeyType="send"
+  blurOnSubmit={false}
+  style={[
+    styles.composerInput,
+    { color: tokens.text },
+  ]}
+/>
 
             <Pressable
               accessibilityRole="button"

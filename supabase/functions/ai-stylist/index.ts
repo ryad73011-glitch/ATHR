@@ -1,4 +1,3 @@
-
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
 const corsHeaders = {
@@ -17,15 +16,45 @@ const json = (body: unknown, status = 200) =>
 const currencies = ['DZD', 'USD', 'EUR', 'GBP'];
 const universes = ['CALM', 'CHAOS'];
 
+// Use OpenRouter's free-model router only.
+// Do not fall back to a paid model automatically.
+const PROVIDER = 'openrouter';
+const MODEL = 'openrouter/free';
+const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
+
 function parseModelJson(content: string): Record<string, unknown> {
   try {
-    return JSON.parse(content);
+    const parsed: unknown = JSON.parse(content);
+
+    if (
+      parsed !== null &&
+      typeof parsed === 'object' &&
+      !Array.isArray(parsed)
+    ) {
+      return parsed as Record<string, unknown>;
+    }
   } catch {
-    const start = content.indexOf('{');
-    const end = content.lastIndexOf('}');
-    if (start < 0 || end <= start) throw new Error('Invalid AI response');
-    return JSON.parse(content.slice(start, end + 1));
+    // Some models wrap JSON in Markdown. Try extracting the JSON object.
   }
+
+  const start = content.indexOf('{');
+  const end = content.lastIndexOf('}');
+
+  if (start < 0 || end <= start) {
+    throw new Error('Invalid AI response');
+  }
+
+  const parsed: unknown = JSON.parse(content.slice(start, end + 1));
+
+  if (
+    parsed === null ||
+    typeof parsed !== 'object' ||
+    Array.isArray(parsed)
+  ) {
+    throw new Error('Invalid AI response');
+  }
+
+  return parsed as Record<string, unknown>;
 }
 
 Deno.serve(async (req: Request) => {
@@ -40,8 +69,10 @@ Deno.serve(async (req: Request) => {
   const supabaseUrl = Deno.env.get('SUPABASE_URL');
   const anonKey = Deno.env.get('SUPABASE_ANON_KEY');
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  const apiKey = Deno.env.get('OPENROUTER_API_KEY');
 
   if (!supabaseUrl || !anonKey || !serviceRoleKey) {
+    console.error('Supabase server configuration is incomplete');
     return json({ error: 'Server configuration error' }, 500);
   }
 
@@ -54,7 +85,10 @@ Deno.serve(async (req: Request) => {
   }
 
   const authClient = createClient(supabaseUrl, anonKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
   });
 
   const { data: authData, error: authError } =
@@ -69,10 +103,16 @@ Deno.serve(async (req: Request) => {
   let body: Record<string, unknown>;
 
   try {
-    const parsed = await req.json();
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    const parsed: unknown = await req.json();
+
+    if (
+      parsed === null ||
+      typeof parsed !== 'object' ||
+      Array.isArray(parsed)
+    ) {
       return json({ error: 'Invalid request body' }, 400);
     }
+
     body = parsed as Record<string, unknown>;
   } catch {
     return json({ error: 'Invalid JSON body' }, 400);
@@ -102,7 +142,10 @@ Deno.serve(async (req: Request) => {
     return json({ error: 'Invalid budget' }, 400);
   }
 
-  if (typeof currency !== 'string' || !currencies.includes(currency)) {
+  if (
+    typeof currency !== 'string' ||
+    !currencies.includes(currency)
+  ) {
     return json({ error: 'Unsupported currency' }, 400);
   }
 
@@ -110,7 +153,9 @@ Deno.serve(async (req: Request) => {
     !Array.isArray(requestedUniverses) ||
     requestedUniverses.length > 2 ||
     !requestedUniverses.every(
-      (value) => typeof value === 'string' && universes.includes(value),
+      (value) =>
+        typeof value === 'string' &&
+        universes.includes(value),
     )
   ) {
     return json({ error: 'Invalid style selection' }, 400);
@@ -120,7 +165,9 @@ Deno.serve(async (req: Request) => {
     !Array.isArray(palette) ||
     palette.length > 12 ||
     !palette.every(
-      (value) => typeof value === 'string' && value.length <= 40,
+      (value) =>
+        typeof value === 'string' &&
+        value.length <= 40,
     )
   ) {
     return json({ error: 'Invalid palette' }, 400);
@@ -130,51 +177,64 @@ Deno.serve(async (req: Request) => {
     return json({ error: 'Invalid note' }, 400);
   }
 
-  // Image analysis is not implemented by this function yet.
+  // Image analysis is not implemented in this endpoint yet.
+  // Do not pretend that a phone-local image URI is accessible to the server.
   if (
     body.image_uris !== undefined &&
-    (!Array.isArray(body.image_uris) || body.image_uris.length > 0)
+    (
+      !Array.isArray(body.image_uris) ||
+      body.image_uris.length > 0
+    )
   ) {
     return json(
-      { error: 'Image styling is not supported by this endpoint yet' },
+      {
+        error:
+          'Image styling is not supported by this endpoint yet',
+      },
       400,
     );
   }
 
-  const provider = Deno.env.get('AI_PROVIDER') ?? 'openai';
-
-  if (!['openai', 'anthropic'].includes(provider)) {
-    return json({ error: 'Unsupported AI provider' }, 500);
-  }
-
-  const apiKey = Deno.env.get('AI_API_KEY');
-  const model =
-    Deno.env.get('AI_MODEL') ??
-    (provider === 'anthropic' ? 'claude-sonnet-4-5' : 'gpt-4o-mini');
-
-  const supabase = createClient(supabaseUrl, serviceRoleKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
+  const supabase = createClient(
+    supabaseUrl,
+    serviceRoleKey,
+    {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+      },
+    },
+  );
 
   const started = Date.now();
 
-  async function logUsage(status: 'ok' | 'error' | 'fallback') {
-    const { error } = await supabase.from('ai_usage').insert({
-      user_id: userId,
-      model,
-      provider,
-      latency_ms: Date.now() - started,
-      status,
-    });
+  async function logUsage(
+    status: 'ok' | 'error' | 'fallback',
+  ) {
+    const { error } = await supabase
+      .from('ai_usage')
+      .insert({
+        user_id: userId,
+        model: MODEL,
+        provider: PROVIDER,
+        latency_ms: Date.now() - started,
+        status,
+      });
 
     if (error) {
+      // Never log API keys, authorization headers, or user tokens.
       console.error('AI usage logging failed');
     }
   }
 
   if (!apiKey) {
     await logUsage('fallback');
-    return json({ configured: false, result: null });
+
+    // The existing mobile client can use its local fallback.
+    return json({
+      configured: false,
+      result: null,
+    });
   }
 
   try {
@@ -191,7 +251,8 @@ Deno.serve(async (req: Request) => {
       query = query.in('universe', requestedUniverses);
     }
 
-    const { data: products, error: productError } = await query;
+    const { data: products, error: productError } =
+      await query;
 
     if (productError) {
       throw new Error('Product catalogue unavailable');
@@ -199,114 +260,148 @@ Deno.serve(async (req: Request) => {
 
     const catalogue = products ?? [];
 
-    const system =
-      'You are ATHR, a fashion stylist. Choose only product IDs from the ' +
-      'provided catalogue. Return strict JSON with keys product_ids, ' +
-      'reasoning and message. Recommend at most 6 products. The server ' +
-      'will independently enforce the budget and verify every product. ' +
-      'Never invent products, prices, stock, or links.';
+    const system = [
+      'You are ATHR, a fashion stylist for the ATHR app.',
+      'Help the user create a practical outfit based on their request.',
+      'Recommend products only from the provided catalogue.',
+      'Never invent product IDs, prices, stock status, or links.',
+      'Return one valid JSON object without Markdown.',
+      'Use exactly these keys: product_ids, reasoning, message.',
+      'product_ids must be an array of catalogue product IDs.',
+      'Recommend no more than 6 products.',
+      'reasoning must be an array of short strings.',
+      'message must be a concise, helpful stylist response.',
+      'Respect the requested budget and currency.',
+      'The server will verify product IDs, prices, and the budget.',
+    ].join(' ');
 
     const userPrompt = JSON.stringify({
-      request: { occasion, budget, currency, universes: requestedUniverses, palette, note },
-      products: catalogue.map((p) => ({
-        id: p.id,
-        title: p.title,
-        brand: p.brand,
-        category: p.category,
-        universe: p.universe,
-        price: p.price,
-        currency: p.currency,
+      request: {
+        occasion: occasion.trim(),
+        budget,
+        currency,
+        universes: requestedUniverses,
+        palette,
+        note: note.trim(),
+      },
+      products: catalogue.map((product) => ({
+        id: product.id,
+        title: product.title,
+        brand: product.brand,
+        category: product.category,
+        universe: product.universe,
+        price: product.price,
+        currency: product.currency,
       })),
     });
 
-    let content = '';
-
-    if (provider === 'anthropic') {
-      const response = await fetch(
-        'https://api.anthropic.com/v1/messages',
-        {
-          method: 'POST',
-          headers: {
-            'content-type': 'application/json',
-            'x-api-key': apiKey,
-            'anthropic-version': '2023-06-01',
+    const response = await fetch(OPENROUTER_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+        'HTTP-Referer':
+          'https://github.com/ryad73011-glitch/ATHR',
+        'X-Title': 'ATHR WASM',
+      },
+      body: JSON.stringify({
+        model: MODEL,
+        messages: [
+          {
+            role: 'system',
+            content: system,
           },
-          body: JSON.stringify({
-            model,
-            max_tokens: 800,
-            system,
-            messages: [{ role: 'user', content: userPrompt }],
-          }),
-        },
+          {
+            role: 'user',
+            content: userPrompt,
+          },
+        ],
+        temperature: 0.4,
+        max_tokens: 1000,
+      }),
+    });
+
+    if (!response.ok) {
+      // Do not return raw provider errors to the client.
+      // Never fall back to a paid provider or model.
+      console.error(
+        `OpenRouter request failed with status ${response.status}`,
       );
 
-      if (!response.ok) throw new Error('AI provider request failed');
+      throw new Error('OpenRouter request failed');
+    }
 
-      const data = await response.json();
-      content = (data.content ?? [])
-        .map((part: { text?: string }) => part.text ?? '')
-        .join('');
-    } else {
-      const response = await fetch(
-        'https://api.openai.com/v1/chat/completions',
-        {
-          method: 'POST',
-          headers: {
-            'content-type': 'application/json',
-            Authorization: `Bearer ${apiKey}`,
-          },
-          body: JSON.stringify({
-            model,
-            response_format: { type: 'json_object' },
-            messages: [
-              { role: 'system', content: system },
-              { role: 'user', content: userPrompt },
-            ],
-          }),
-        },
-      );
+    const data = await response.json();
 
-      if (!response.ok) throw new Error('AI provider request failed');
+    const content = data.choices?.[0]?.message?.content;
 
-      const data = await response.json();
-      content = data.choices?.[0]?.message?.content ?? '';
+    if (typeof content !== 'string' || content.length === 0) {
+      throw new Error('OpenRouter returned an empty response');
     }
 
     const resultFromAI = parseModelJson(content);
-    const proposedIds = Array.isArray(resultFromAI.product_ids)
+
+    const proposedIds = Array.isArray(
+      resultFromAI.product_ids,
+    )
       ? resultFromAI.product_ids
       : [];
 
-    // Trust database prices, not the model's claims.
-    // Skip any item that would take the total over the user's budget.
+    // The database remains the source of truth for products and prices.
     const chosenProducts: typeof catalogue = [];
     const seen = new Set<string>();
     let total = 0;
 
     for (const proposedId of proposedIds) {
-      if (typeof proposedId !== 'string' || seen.has(proposedId)) continue;
+      if (
+        typeof proposedId !== 'string' ||
+        seen.has(proposedId)
+      ) {
+        continue;
+      }
+
       seen.add(proposedId);
 
-      const product = catalogue.find((item) => item.id === proposedId);
-      if (!product) continue;
+      const product = catalogue.find(
+        (item) => item.id === proposedId,
+      );
+
+      if (!product) {
+        continue;
+      }
 
       const price = Number(product.price);
-      if (!Number.isFinite(price) || price < 0) continue;
-      if (total + price > budget) continue;
+
+      if (!Number.isFinite(price) || price < 0) {
+        continue;
+      }
+
+      if (total + price > budget) {
+        continue;
+      }
 
       chosenProducts.push(product);
       total += price;
 
-      if (chosenProducts.length >= 6) break;
+      if (chosenProducts.length >= 6) {
+        break;
+      }
     }
 
-    const chosenIds = chosenProducts.map((product) => product.id);
+    const chosenIds = chosenProducts.map(
+      (product) => product.id,
+    );
 
-    const reasoning = Array.isArray(resultFromAI.reasoning)
-      ? resultFromAI.reasoning.filter(
-          (item): item is string =>
-            typeof item === 'string' && item.length <= 300,
-        ).slice(0, 6)
+    const reasoning = Array.isArray(
+      resultFromAI.reasoning,
+    )
+      ? resultFromAI.reasoning
+          .filter(
+            (item): item is string =>
+              typeof item === 'string' &&
+              item.length <= 300,
+          )
+          .slice(0, 6)
       : [];
 
     const message =
@@ -328,17 +423,26 @@ Deno.serve(async (req: Request) => {
       product_ids: chosenIds,
       reasoning,
       engine: 'cloud-ai',
-      model,
+      model: MODEL,
       total_cost: total,
       currency,
     };
 
     await logUsage('ok');
-    return json({ configured: true, result });
+
+    return json({
+      configured: true,
+      result,
+    });
   } catch {
     await logUsage('error');
+
     return json(
-      { configured: true, result: null, error: 'AI styling request failed' },
+      {
+        configured: true,
+        result: null,
+        error: 'AI styling request failed',
+      },
       502,
     );
   }

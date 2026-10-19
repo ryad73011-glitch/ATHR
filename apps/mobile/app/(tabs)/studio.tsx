@@ -125,16 +125,30 @@ export default function Studio() {
   const [last, setLast] = useState<StudioResult | null>(null);
   const [showSettings, setShowSettings] = useState(false);
 
-  const run = useMutation({
+  
     mutationFn: async (request: ChatRequest) => {
-      return source.runStudio({
-        occasion: request.occasion,
-        budget: Number(request.budget) || 50000,
-        currency: 'DZD',
-        universes: [request.universe],
-        palette: request.palette,
-        note: request.text,
-        image_uris: request.images,
+      if (request.images.length > 0) {
+        throw new Error(
+          'Image analysis is not available yet. Send a text message instead.',
+        );
+      }
+
+      const history = messages
+        .filter(
+          (item) =>
+            item.role === 'user' ||
+            item.role === 'assistant',
+        )
+        .slice(-12)
+        .map((item) => ({
+          role: item.role as 'user' | 'assistant',
+          content: item.content,
+        }));
+
+      return source.runWasmChat({
+        message: request.text,
+        history,
+        universe: request.universe,
       });
     },
 
@@ -176,10 +190,13 @@ export default function Studio() {
       }, 100);
     },
 
-    onError: () => {
-      toast.show(t('common.error'));
-    },
-  });
+    onError: (error) => {
+  toast.show(
+    error instanceof Error
+      ? error.message
+      : t('common.error'),
+  );
+},
 
   const sendMessage = () => {
     const text = draft.trim();

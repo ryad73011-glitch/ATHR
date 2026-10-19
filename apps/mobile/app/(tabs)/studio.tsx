@@ -126,6 +126,7 @@ export default function Studio() {
   const [showSettings, setShowSettings] = useState(false);
 
   
+  const run = useMutation({
     mutationFn: async (request: ChatRequest) => {
       if (request.images.length > 0) {
         throw new Error(
@@ -158,11 +159,7 @@ export default function Studio() {
       const userMessage: ChatMessage = {
         id: `user_${Date.now()}`,
         role: 'user',
-        content:
-          request.text ||
-          (request.images.length
-            ? 'Please analyze this clothing image.'
-            : 'Help me find an outfit.'),
+        content: request.text,
         imageUris: request.images,
         created_at: now,
       };
@@ -191,12 +188,13 @@ export default function Studio() {
     },
 
     onError: (error) => {
-  toast.show(
-    error instanceof Error
-      ? error.message
-      : t('common.error'),
-  );
-},
+      toast.show(
+        error instanceof Error
+          ? error.message
+          : t('common.error'),
+      );
+    },
+  });
 
   const sendMessage = () => {
     const text = draft.trim();

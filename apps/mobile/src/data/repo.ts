@@ -18,6 +18,7 @@ Profile,
 Report,
 StudioRequest,
 StudioResult,
+WasmChatRequest,
 StylePreferences,
 Subscription,
 SubscriptionPlan,
@@ -151,6 +152,7 @@ message: string;
 
 // --- studio (AI) ----------------------------------------------------------
 runStudio(req: StudioRequest): Promise<StudioResult>;
+runWasmChat(req: WasmChatRequest): Promise<StudioResult>;
 
 // --- admin ----------------------------------------------------------------
 adminOverview(): Promise<{

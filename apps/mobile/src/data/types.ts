@@ -46,9 +46,6 @@ export interface Profile {
   avatar_url: string | null;
   bio: string | null;
   city: string | null;
-  phone?: string | null;
-  wilaya?: string | null;
-  commune?: string | null;
   role: Role;
   universe_pref: Universe | null;
   preferred_locale: 'en' | 'ar' | 'fr';
@@ -57,6 +54,14 @@ export interface Profile {
   verified: boolean;
   premium: boolean;
   created_at: ISODate;
+}
+
+export interface AccountContactDetails {
+  user_id: ID;
+  phone: string;
+  wilaya: string;
+  commune: string;
+  updated_at: ISODate;
 }
 
 export interface DeliveryAddress {

@@ -23,6 +23,7 @@ import type {
   StudioRequest,
   StudioResult,
   WasmChatRequest,
+  ProductImageClassification,
 } from './types';
 import { demoProducts } from './demo/seed';
 
@@ -345,6 +346,41 @@ async updatePassword(password) {
 
       if (error) throw new Error(error.message);
       return data;
+    },
+
+    async classifyProductImage(imageBase64: string, mimeType: string): Promise<ProductImageClassification> {
+      const { data, error } = await sb.functions.invoke('classify-product-image', {
+        body: { imageBase64, mimeType },
+      });
+      if (error) {
+        let detail = error.message;
+        try {
+          const response = (error as { context?: Response }).context;
+          if (response) {
+            const payload = await response.clone().json() as { error?: string; message?: string };
+            detail = payload.error ?? payload.message ?? detail;
+          }
+        } catch { /* Keep the SDK error when no structured payload exists. */ }
+        throw new Error(detail);
+      }
+      if (!data?.classification) throw new Error(data?.error ?? 'Image analysis returned no classification.');
+      return data.classification as ProductImageClassification;
+    },
+
+    async uploadProductImage(imageBase64: string, mimeType: string): Promise<string> {
+      const { data: sessionData, error: sessionError } = await sb.auth.getSession();
+      if (sessionError || !sessionData.session) throw new Error('Sign in before uploading a product image.');
+      const binary = atob(imageBase64);
+      const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+      const extension = mimeType === 'image/png' ? 'png' : mimeType === 'image/webp' ? 'webp' : 'jpg';
+      const path = `${sessionData.session.user.id}/${crypto.randomUUID()}.${extension}`;
+      const { error } = await sb.storage.from('product-images').upload(path, bytes, {
+        contentType: mimeType,
+        cacheControl: '3600',
+        upsert: false,
+      });
+      if (error) throw new Error(error.message);
+      return sb.storage.from('product-images').getPublicUrl(path).data.publicUrl;
     },
 
     async upsertProduct(input, merchantId) {

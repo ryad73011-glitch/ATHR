@@ -9,6 +9,7 @@ import { useDataSource } from '../../src/data';
 import { useLocale } from '../../src/i18n';
 import { spacing } from '../../src/theme/tokens';
 import { useTheme } from '../../src/theme/ThemeProvider';
+import { useSession } from '../../src/store/session';
 
 export default function Merchants() {
   const source = useDataSource();
@@ -24,7 +25,7 @@ export default function Merchants() {
 
   const merchants = useQuery({ queryKey: ['merchants'], queryFn: () => source.listMerchants() });
 
-  const session = useQuery({ queryKey: ['session'], queryFn: () => source.getSession() });
+  const session = useSession((state) => state.session);
 
   const apply = useMutation({
     mutationFn: () => source.applyMerchant({ name, city, description: desc }),
@@ -52,7 +53,7 @@ export default function Merchants() {
 
       {applying ? (
         <Card style={{ padding: spacing.lg, marginBottom: spacing.lg }}>
-          {!session.data ? (
+          {!session ? (
             <Text variant="body" muted style={{ marginBottom: spacing.md }}>
               Sign in first to register a store. Store applications are linked to your ATHR account.
             </Text>
@@ -64,7 +65,7 @@ export default function Merchants() {
             label="Submit application"
             full
             loading={apply.isPending}
-            disabled={!session.data || !name.trim() || !city.trim() || apply.isPending}
+            disabled={!session || !name.trim() || !city.trim() || apply.isPending}
             onPress={() => apply.mutate()}
           />
         </Card>

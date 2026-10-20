@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Image, View } from 'react-native';
+import { Alert, Image, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 
 import { ProductRow } from '../../src/components/cards';
@@ -42,6 +42,10 @@ export default function MerchantDashboard() {
   const [selectedImage, setSelectedImage] = useState<{ uri: string; base64: string; mimeType: string } | null>(null);
   const [classification, setClassification] = useState<ProductImageClassification | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
+  const [editingProductId, setEditingProductId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editPrice, setEditPrice] = useState('');
+  const [editStock, setEditStock] = useState('');
 
   const chooseAndAnalyseImage = async () => {
     try {
@@ -145,6 +149,34 @@ export default function MerchantDashboard() {
     },
   });
 
+  const updateProduct = useMutation({
+    mutationFn: ({ productId, patch }: { productId: string; patch: { title?: string; price?: number; in_stock?: boolean; stock_count?: number | null } }) => source.updateMerchantProduct(productId, activeMerchantId, patch),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['mproducts', activeMerchantId] });
+      qc.invalidateQueries({ queryKey: ['merchants'] });
+      toast.show('Product updated.');
+      setEditingProductId(null);
+    },
+    onError: (error) => toast.show(error instanceof Error ? error.message : 'Could not update product.'),
+  });
+
+  const deleteProduct = useMutation({
+    mutationFn: (productId: string) => source.deleteMerchantProduct(productId, activeMerchantId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['mproducts', activeMerchantId] });
+      qc.invalidateQueries({ queryKey: ['mstats', activeMerchantId] });
+      qc.invalidateQueries({ queryKey: ['merchants'] });
+      toast.show('Product deleted.');
+    },
+    onError: (error) => toast.show(error instanceof Error ? error.message : 'Could not delete product.'),
+  });
+
+  const confirmDeleteProduct = (productId: string, productTitle: string) => {
+    Alert.alert('Delete product?', `“${productTitle}” will be removed from your store.`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: () => deleteProduct.mutate(productId) },
+    ]);
+  };
   const max = Math.max(...(stats.data?.by_day.map((d) => d.clicks) ?? [1]), 1);
 
   return (
@@ -254,8 +286,25 @@ export default function MerchantDashboard() {
         {t('merchants.products')} ({products.data?.total ?? 0})
       </Text>
       {(products.data?.items ?? []).map((p) => (
-        <ProductRow key={p.id} product={p} />
-      ))}
+        <View key={p.id} style={{ marginBottom: spacing.md }}>
+          <ProductRow product={p} />
+          {editingProductId === p.id ? (
+            <Card style={{ padding: spacing.md, gap: spacing.sm }}>
+              <Input label="Product title" value={editTitle} onChangeText={setEditTitle} maxLength={120} />
+              <Input label="Price (DZD)" value={editPrice} onChangeText={setEditPrice} keyboardType="number-pad" />
+              <Input label="Stock quantity" value={editStock} onChangeText={setEditStock} keyboardType="number-pad" />
+              <Button label="Save changes" full loading={updateProduct.isPending} disabled={!editTitle.trim() || !Number(editPrice) || !/^\d+$/.test(editStock) || updateProduct.isPending} onPress={() => updateProduct.mutate({ productId: p.id, patch: { title: editTitle.trim(), price: Number(editPrice), stock_count: Number(editStock), in_stock: Number(editStock) > 0 } })} />
+              <Button label="Cancel" full variant="outline" onPress={() => setEditingProductId(null)} />
+            </Card>
+          ) : (
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.xs }}>
+              <Button label="Edit / stock" small variant="outline" onPress={() => { setEditingProductId(p.id); setEditTitle(p.title); setEditPrice(String(p.price)); setEditStock(String(p.stock_count ?? 0)); }} />
+              <Button label={p.in_stock ? 'Mark out of stock' : 'Mark in stock'} small variant="outline" loading={updateProduct.isPending && updateProduct.variables?.productId === p.id} onPress={() => updateProduct.mutate({ productId: p.id, patch: { in_stock: !p.in_stock, ...(p.in_stock ? {} : { stock_count: Math.max(1, p.stock_count ?? 1) }) } })} />
+              <Button label="Delete" small variant="outline" loading={deleteProduct.isPending && deleteProduct.variables === p.id} onPress={() => confirmDeleteProduct(p.id, p.title)} />
+            </View>
+          )}
+        </View>
+      ))
         </>
       ) : null}
     </Screen>

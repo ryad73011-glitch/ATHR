@@ -130,13 +130,13 @@ Deno.serve(async (req: Request) => {
       !allowedMimeTypes.has(candidate.mimeType) ||
       typeof candidate.base64 !== 'string' ||
       candidate.base64.length === 0 ||
-      candidate.base64.length > 5_000_000 ||
+      candidate.base64.length > 4_500_000 ||
       !/^[A-Za-z0-9+/]+={0,2}$/.test(candidate.base64)
     ) {
       return json({ error: 'Invalid or oversized image' }, 400);
     }
     totalImageCharacters += candidate.base64.length;
-    if (totalImageCharacters > 12_000_000) {
+    if (totalImageCharacters > 4_500_000) {
       return json({ error: 'Images are too large; attach smaller photos' }, 413);
     }
     images.push({

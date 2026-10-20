@@ -69,6 +69,16 @@ export interface StylePreferences {
   updated_at: ISODate;
 }
 
+export interface MerchantReview {
+  id: ID;
+  merchant_id: ID;
+  user_id: ID;
+  rating: number;
+  comment: string | null;
+  created_at: ISODate;
+  updated_at: ISODate;
+}
+
 export interface Merchant {
   id: ID;
   owner_id?: ID;

@@ -105,6 +105,7 @@ Deno.serve(async (req: Request) => {
   const message = body.message;
   const rawHistory = body.history ?? [];
   const universe = body.universe;
+  const audience = body.audience ?? 'women';
 
   if (
     typeof message !== 'string' ||
@@ -140,6 +141,10 @@ Deno.serve(async (req: Request) => {
     return json({ error: 'Invalid universe' }, 400);
   }
 
+  if (audience !== 'women' && audience !== 'all') {
+    return json({ error: 'Invalid audience' }, 400);
+  }
+
   const history = (rawHistory as ChatMessage[]).slice(-12);
 
   const supabase = createClient(url, serviceKey, {
@@ -166,8 +171,12 @@ Deno.serve(async (req: Request) => {
       'You are a general-purpose assistant, not only a fashion bot.',
       'Answer general questions directly and helpfully.',
       'Reply in the language used by the user. Support Algerian Darija, Arabic, French and English when possible.',
-      'For fashion questions, give practical styling advice.',
+      'For fashion questions, give practical styling advice tailored to the user’s stated needs.',
+      audience === 'women'
+        ? 'The selected audience is women. Prioritize women’s personal styling, outfits, layering, modest options when requested, occasion dressing, color coordination, fit, comfort and budget. Never assume the user wears a particular style or covers their hair; ask or adapt when relevant.'
+        : 'The selected audience is all styles. Adapt recommendations to the user’s stated gender presentation, preferences and needs without assumptions.',
       'Recommend ATHR products only when relevant and only from the supplied catalogue.',
+      'The product catalogue does not provide a verified target-audience field. Do not claim a product is women-specific unless its supplied title/category clearly supports that; if uncertain, give styling advice without attaching a misleading product recommendation.',
       'Never invent product IDs, prices, stock status or availability.',
       'Never claim to have analysed a photo; this endpoint does not receive image content.',
       'Use the conversation history to understand follow-up messages.',
@@ -193,7 +202,7 @@ Deno.serve(async (req: Request) => {
           {
             role: 'system',
             content:
-              `Selected universe: ${universe ?? 'CALM'}. ` +
+              `Selected universe: ${universe ?? 'CALM'}. Selected audience: ${audience}. ` +
               `Available products (DZD, in stock): ${JSON.stringify(catalogue)}`,
           },
           ...history.map((item) => ({

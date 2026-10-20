@@ -74,8 +74,30 @@ export default function MerchantDashboard() {
     }
   };
 
-  const stats = useQuery({ queryKey: ['mstats', MERCHANT_ID], queryFn: () => source.merchantStats(MERCHANT_ID) });
-  const products = useQuery({ queryKey: ['mproducts', MERCHANT_ID], queryFn: () => source.listProducts({ merchant_id: MERCHANT_ID, limit: 50 }) });
+  const ownedMerchant = useQuery({
+    queryKey: ['owned-merchant'],
+    queryFn: async () => {
+      if (source.mode === 'demo') return null;
+      const session = await source.getSession();
+      if (!session) return null;
+      const merchants = await source.listMerchants();
+      return merchants.find((merchant) => merchant.owner_id === session.user_id) ?? null;
+    },
+    enabled: source.mode === 'live',
+  });
+  const activeMerchantId = source.mode === 'demo' ? MERCHANT_ID : ownedMerchant.data?.id ?? '';
+  const activeMerchantName = source.mode === 'demo' ? 'Maison Sable' : ownedMerchant.data?.name ?? 'Merchant account';
+
+  const stats = useQuery({
+    queryKey: ['mstats', activeMerchantId],
+    queryFn: () => source.merchantStats(activeMerchantId),
+    enabled: Boolean(activeMerchantId),
+  });
+  const products = useQuery({
+    queryKey: ['mproducts', activeMerchantId],
+    queryFn: () => source.listProducts({ merchant_id: activeMerchantId, limit: 50 }),
+    enabled: Boolean(activeMerchantId),
+  });
 
   const add = useMutation({
     mutationFn: async () => {
@@ -106,11 +128,11 @@ export default function MerchantDashboard() {
           in_stock: true,
           stock_count: 5,
         },
-        MERCHANT_ID,
+        activeMerchantId,
       );
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['mproducts', MERCHANT_ID] });
+      qc.invalidateQueries({ queryKey: ['mproducts', activeMerchantId] });
       toast.show(`${t('merchants.addProduct')} ✓`);
       setAdding(false);
       setTitle('');
@@ -127,7 +149,13 @@ export default function MerchantDashboard() {
 
   return (
     <Screen scroll insetBottom>
-      <Header title={t('merchants.dashboard')} subtitle="Maison Sable" onBack={() => router.back()} right={<Button label={t('merchants.addProduct')} small onPress={() => setAdding((a) => !a)} />} />
+      <Header title={t('merchants.dashboard')} subtitle={activeMerchantName} onBack={() => router.back()} right={<Button label={t('merchants.addProduct')} small disabled={source.mode === 'live' && !activeMerchantId} onPress={() => setAdding((a) => !a)} />} />
+
+      {source.mode === 'live' && !ownedMerchant.isLoading && !activeMerchantId ? (
+        <Card style={{ padding: spacing.md, marginBottom: spacing.lg }}>
+          <Text variant="body">No merchant profile is linked to this account yet. Register or link a merchant profile before adding products.</Text>
+        </Card>
+      ) : null}
 
       {adding ? (
         <Card style={{ padding: spacing.lg, marginBottom: spacing.lg }}>

@@ -76,6 +76,9 @@ similarLooks(lookId: string, limit?: number): Promise<Look[]>;
 // --- merchants ------------------------------------------------------------
 listMerchants(opts?: { approvedOnly?: boolean }): Promise<Merchant[]>;
 getMerchant(id: string): Promise<Merchant | null>;
+listMerchantReviews(merchantId: string): Promise<MerchantReview[]>;
+addMerchantReview(merchantId: string, rating: number, comment?: string): Promise<MerchantReview>;
+updateMerchantReview(reviewId: string, rating: number, comment?: string): Promise<MerchantReview>;
 applyMerchant(input: Partial<Merchant> & { name: string; city: string }): Promise<Merchant>;
 upsertProduct(
 product: Partial<Product> & {

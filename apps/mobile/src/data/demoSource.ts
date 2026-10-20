@@ -34,6 +34,7 @@ import type {
   Look,
   LookFilter,
   Merchant,
+  MerchantReview,
   Outfit,
   Product,
   ProductFilter,
@@ -70,6 +71,7 @@ interface DemoState {
   customProducts: Product[];
   customLooks: Look[];
   merchants: Merchant[];
+  merchantReviews: MerchantReview[];
   prefs: Record<string, StylePreferences>;
 }
 
@@ -90,6 +92,7 @@ const defaultState = (): DemoState => ({
   customProducts: [],
   customLooks: [],
   merchants: [...demoMerchants],
+  merchantReviews: [],
   prefs: {},
 });
 
@@ -350,6 +353,44 @@ export const demoSource: DataSource = {
   async getMerchant(id) {
     await load();
     return state.merchants.find((m) => m.id === id) ?? null;
+  },
+
+  async listMerchantReviews(merchantId) {
+    await load();
+    return state.merchantReviews.filter((r) => r.merchant_id === merchantId).sort((a, b) => b.created_at.localeCompare(a.created_at));
+  },
+
+  async addMerchantReview(merchantId, rating, comment = '') {
+    await load();
+    const session = state.session;
+    if (!session) throw new Error('Sign in to rate this store.');
+    if (!Number.isInteger(rating) || rating < 1 || rating > 5) throw new Error('Choose a rating from 1 to 5.');
+    if (state.merchantReviews.some((r) => r.merchant_id === merchantId && r.user_id === session.user_id)) throw new Error('You have already rated this store. Edit your existing rating instead.');
+    const review: MerchantReview = { id: uid('rev'), merchant_id: merchantId, user_id: session.user_id, rating, comment: comment.trim() || null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+    state.merchantReviews.push(review);
+    const merchant = state.merchants.find((m) => m.id === merchantId);
+    const rows = state.merchantReviews.filter((r) => r.merchant_id === merchantId);
+    if (merchant) {
+      merchant.rating = Math.round(rows.reduce((sum, r) => sum + r.rating, 0) / rows.length * 100) / 100;
+      merchant.review_count = rows.length;
+    }
+    persist();
+    return review;
+  },
+
+  async updateMerchantReview(reviewId, rating, comment = '') {
+    await load();
+    const review = state.merchantReviews.find((r) => r.id === reviewId && r.user_id === state.session?.user_id);
+    if (!review) throw new Error('Review not found or not yours.');
+    if (!Number.isInteger(rating) || rating < 1 || rating > 5) throw new Error('Choose a rating from 1 to 5.');
+    review.rating = rating;
+    review.comment = comment.trim() || null;
+    review.updated_at = new Date().toISOString();
+    const merchant = state.merchants.find((m) => m.id === review.merchant_id);
+    const rows = state.merchantReviews.filter((r) => r.merchant_id === review.merchant_id);
+    if (merchant && rows.length) merchant.rating = Math.round(rows.reduce((sum, r) => sum + r.rating, 0) / rows.length * 100) / 100;
+    persist();
+    return review;
   },
 
   async applyMerchant(input) {

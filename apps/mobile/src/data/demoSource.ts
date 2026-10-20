@@ -378,6 +378,14 @@ export const demoSource: DataSource = {
     return m;
   },
 
+  async classifyProductImage(_imageBase64: string, _mimeType: string) {
+    throw new Error('AI image classification needs live Supabase mode. Configure the Supabase connection to use this feature.');
+  },
+
+  async uploadProductImage(_imageBase64: string, _mimeType: string) {
+    throw new Error('Product image uploads need live Supabase mode. Configure the Supabase connection to use this feature.');
+  },
+
   async upsertProduct(input, merchantId) {
     await load();
     const merchant = state.merchants.find((m) => m.id === merchantId);

@@ -45,8 +45,8 @@ export const useSession = create<SessionState>((set, get) => ({
 
   async signUp(source, input) {
     const session = await source.signUp(input);
-    const [profile, prefs] = await Promise.all([source.getProfile(session.user_id), source.getPreferences(session.user_id)]);
-    set({ status: 'authed', session, profile, prefs });
+    const [profile, prefs, contactDetails] = await Promise.all([source.getProfile(session.user_id), source.getPreferences(session.user_id), source.getAccountContactDetails(session.user_id)]);
+    set({ status: 'authed', session, profile, prefs, contactDetails });
   },
 
   async signOut(source) {

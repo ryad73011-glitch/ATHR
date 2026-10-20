@@ -154,7 +154,7 @@ Deno.serve(async (req: Request) => {
   try {
     const { data: products, error: productError } = await supabase
       .from('products')
-      .select('id,title,brand,category,universe,price,currency,in_stock')
+      .select('id,title,brand,category,universe,price,currency,in_stock,target_audience,classification_status')
       .eq('in_stock', true)
       .eq('currency', 'DZD')
       .limit(60);
@@ -164,7 +164,13 @@ Deno.serve(async (req: Request) => {
       return json({ error: 'Product catalogue is unavailable' }, 503);
     }
 
-    const catalogue = products ?? [];
+    const catalogueAll = products ?? [];
+    const catalogue = audience === 'women'
+      ? catalogueAll.filter((product) =>
+          ['women', 'unisex'].includes(String(product.target_audience)) &&
+          product.classification_status === 'classified',
+        )
+      : catalogueAll;
 
     const system = [
       'You are WASM, ATHR personal AI assistant.',
@@ -175,7 +181,9 @@ Deno.serve(async (req: Request) => {
       audience === 'women'
         ? 'The selected audience is women. Prioritize women’s personal styling, outfits, layering, modest options when requested, occasion dressing, color coordination, fit, comfort and budget. Never assume the user wears a particular style or covers their hair; ask or adapt when relevant.'
         : 'The selected audience is all styles. Adapt recommendations to the user’s stated gender presentation, preferences and needs without assumptions.',
-      'Recommend ATHR products only when relevant and only from the supplied catalogue.',
+      audience === 'women'
+        ? 'For product recommendations, only use supplied catalogue entries classified as women or unisex with classification_status classified. If none fit, say no verified matching products are available and still give useful styling advice.'
+        : 'Recommend ATHR products only when relevant and only from the supplied catalogue.',
       'The product catalogue does not provide a verified target-audience field. Do not claim a product is women-specific unless its supplied title/category clearly supports that; if uncertain, give styling advice without attaching a misleading product recommendation.',
       'Never invent product IDs, prices, stock status or availability.',
       'Never claim to have analysed a photo; this endpoint does not receive image content.',

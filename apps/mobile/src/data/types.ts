@@ -355,10 +355,16 @@ export interface WasmChatMessage {
   content: string;
 }
 
+export interface WasmChatImage {
+  mimeType: 'image/jpeg' | 'image/png' | 'image/webp';
+  base64: string;
+}
+
 export interface WasmChatRequest {
   message: string;
   history: WasmChatMessage[];
   universe?: Universe;
+  images?: WasmChatImage[];
 }
 
 export interface StudioResult {

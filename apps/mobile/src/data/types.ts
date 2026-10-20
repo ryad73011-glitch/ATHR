@@ -46,6 +46,9 @@ export interface Profile {
   avatar_url: string | null;
   bio: string | null;
   city: string | null;
+  phone: string | null;
+  wilaya: string | null;
+  commune: string | null;
   role: Role;
   universe_pref: Universe | null;
   preferred_locale: 'en' | 'ar' | 'fr';

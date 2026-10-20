@@ -89,6 +89,12 @@ category: Product['category'];
 },
 merchantId: string,
 ): Promise<Product>;
+updateMerchantProduct(
+productId: string,
+merchantId: string,
+patch: { title?: string; price?: number; in_stock?: boolean; stock_count?: number | null },
+): Promise<Product>;
+deleteMerchantProduct(productId: string, merchantId: string): Promise<void>;
 classifyProductImage(imageBase64: string, mimeType: string): Promise<ProductImageClassification>;
 uploadProductImage(imageBase64: string, mimeType: string): Promise<string>;
 merchantStats(merchantId: string): Promise<{

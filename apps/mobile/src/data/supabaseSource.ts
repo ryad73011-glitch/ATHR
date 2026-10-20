@@ -490,6 +490,52 @@ async updatePassword(password) {
       return data;
     },
 
+    async updateMerchantProduct(productId, merchantId, patch) {
+      const session = await authed();
+      if (!session) throw new Error('Sign in before managing products.');
+      const { data: merchant, error: merchantError } = await sb
+        .from('merchants').select('id, owner_id, approved').eq('id', merchantId).maybeSingle();
+      if (merchantError) throw new Error(merchantError.message);
+      if (!merchant || merchant.owner_id !== session.user.id || !merchant.approved) {
+        throw new Error('You do not have permission to manage products for this store.');
+      }
+      const safePatch: Record<string, unknown> = {};
+      if (patch.title !== undefined) {
+        const title = patch.title.trim();
+        if (!title) throw new Error('Product title cannot be empty.');
+        safePatch.title = title;
+      }
+      if (patch.price !== undefined) {
+        if (!Number.isFinite(patch.price) || patch.price <= 0) throw new Error('Price must be greater than zero.');
+        safePatch.price = patch.price;
+      }
+      if (patch.in_stock !== undefined) safePatch.in_stock = patch.in_stock;
+      if (patch.stock_count !== undefined) {
+        if (patch.stock_count !== null && (!Number.isInteger(patch.stock_count) || patch.stock_count < 0)) {
+          throw new Error('Stock must be a non-negative whole number.');
+        }
+        safePatch.stock_count = patch.stock_count;
+      }
+      const { data, error } = await sb.from('products').update(safePatch)
+        .eq('id', productId).eq('merchant_id', merchantId).select().single();
+      if (error) throw new Error(error.message);
+      return data;
+    },
+
+    async deleteMerchantProduct(productId, merchantId) {
+      const session = await authed();
+      if (!session) throw new Error('Sign in before managing products.');
+      const { data: merchant, error: merchantError } = await sb
+        .from('merchants').select('id, owner_id, approved').eq('id', merchantId).maybeSingle();
+      if (merchantError) throw new Error(merchantError.message);
+      if (!merchant || merchant.owner_id !== session.user.id || !merchant.approved) {
+        throw new Error('You do not have permission to manage products for this store.');
+      }
+      const { error } = await sb.from('products').delete()
+        .eq('id', productId).eq('merchant_id', merchantId);
+      if (error) throw new Error(error.message);
+    },
+
     async merchantStats(merchantId) {
       const { data, error } = await sb.rpc('merchant_stats', {
         merchant_id: merchantId,

@@ -337,6 +337,7 @@ export interface WasmChatRequest {
   message: string;
   history: WasmChatMessage[];
   universe?: Universe;
+  audience?: 'women' | 'all';
 }
 
 export interface StudioResult {

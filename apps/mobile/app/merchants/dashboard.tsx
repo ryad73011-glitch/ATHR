@@ -306,7 +306,7 @@ export default function MerchantDashboard() {
             </View>
           )}
         </View>
-      ))
+      ))}
         </>
       ) : null}
     </Screen>

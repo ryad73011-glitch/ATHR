@@ -46,6 +46,7 @@ type ChatRequest = {
   occasion: Occasion;
   budget: string;
   universe: Universe;
+  audience: 'women' | 'all';
   palette: string[];
 };
 
@@ -132,6 +133,31 @@ const sessionUserId = useSession(
   (state) => state.session?.user_id ?? 'guest',
 );
 const storageKey = `@athr/wasm-chat/v1/${sessionUserId}`;
+const audienceStorageKey = `@athr/wasm-audience/v1/${sessionUserId}`;
+const [audience, setAudience] = useState<'women' | 'all'>('women');
+const [audienceLoadedFor, setAudienceLoadedFor] = useState<string | null>(null);
+
+React.useEffect(() => {
+  let active = true;
+  setAudienceLoadedFor(null);
+  AsyncStorage.getItem(audienceStorageKey)
+    .then((stored) => {
+      if (!active) return;
+      setAudience(stored === 'all' ? 'all' : 'women');
+      setAudienceLoadedFor(audienceStorageKey);
+    })
+    .catch(() => {
+      if (active) setAudienceLoadedFor(audienceStorageKey);
+    });
+  return () => { active = false; };
+}, [audienceStorageKey]);
+
+React.useEffect(() => {
+  if (audienceLoadedFor !== audienceStorageKey) return;
+  AsyncStorage.setItem(audienceStorageKey, audience).catch(() => {
+    // A preference storage failure must not interrupt WASM.
+  });
+}, [audience, audienceLoadedFor, audienceStorageKey]);
 
 React.useEffect(() => {
   let active = true;
@@ -213,6 +239,7 @@ React.useEffect(() => {
         message: request.text,
         history,
         universe: request.universe,
+        audience: request.audience,
       });
     },
 
@@ -273,6 +300,7 @@ React.useEffect(() => {
       occasion,
       budget,
       universe,
+      audience,
       palette: [...palette],
     });
   };
@@ -385,6 +413,37 @@ React.useEffect(() => {
                 and the look you want to create.
               </Text>
 
+              <Text variant="caption" muted style={{ marginTop: spacing.md, marginBottom: spacing.xs }}>
+                PERSONAL STYLE FOR
+              </Text>
+              <View style={styles.chipRow}>
+                {([
+                  { value: 'women', label: "WOMEN'S STYLE" },
+                  { value: 'all', label: 'ALL STYLES' },
+                ] as const).map((option) => {
+                  const selected = audience === option.value;
+                  return (
+                    <Pressable
+                      key={option.value}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected }}
+                      onPress={() => setAudience(option.value)}
+                      style={[styles.suggestion, {
+                        borderColor: selected ? tokens.accent : tokens.border,
+                        backgroundColor: selected ? tokens.surface : 'transparent',
+                      }]}
+                    >
+                      <Text variant="caption" style={{
+                        color: selected ? tokens.accent : tokens.textMuted,
+                        fontWeight: selected ? '800' : '500',
+                      }}>
+                        {option.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
               <View style={styles.identityFooter}>
                 <Text variant="caption" muted>
                   CALM / CHAOS
@@ -441,18 +500,24 @@ React.useEffect(() => {
                       lineHeight: 22,
                     }}
                   >
-                    Tell me what you want to wear, describe
-                    your style, or attach a clothing photo.
-                    I will use your selected preferences to
-                    help create a look.
+                    {audience === 'women'
+                      ? "Explore women's outfits, modest and contemporary styling, colors, occasions, and looks that fit your budget."
+                      : 'Tell me what you want to wear, describe your style, or ask for help building a look.'}
+                    {' '}I will use your selected preferences to help create a look.
                   </Text>
 
                   <View style={styles.suggestions}>
-                    {[
-                      'Build me a casual outfit',
-                      'Help me style black trousers',
-                      'Suggest a look on a budget',
-                    ].map((suggestion) => (
+                    {(audience === 'women'
+                      ? [
+                          'Build me a women’s everyday outfit',
+                          'Suggest a modest elegant look',
+                          'Style an outfit under my budget',
+                        ]
+                      : [
+                          'Build me a casual outfit',
+                          'Help me style black trousers',
+                          'Suggest a look on a budget',
+                        ]).map((suggestion) => (
                       <Pressable
                         key={suggestion}
                         onPress={() => setDraft(suggestion)}

@@ -30,6 +30,8 @@ import type {
   BattleResult,
   Collection,
   Comment,
+  AccountContactDetails,
+  DeliveryAddress,
   EditorialStory,
   Look,
   LookFilter,
@@ -71,6 +73,8 @@ interface DemoState {
   customLooks: Look[];
   merchants: Merchant[];
   prefs: Record<string, StylePreferences>;
+  deliveryAddresses: DeliveryAddress[];
+  accountContacts: Record<string, AccountContactDetails>;
 }
 
 const defaultState = (): DemoState => ({
@@ -91,6 +95,8 @@ const defaultState = (): DemoState => ({
   customLooks: [],
   merchants: [...demoMerchants],
   prefs: {},
+  deliveryAddresses: [],
+  accountContacts: {},
 });
 
 let state: DemoState = defaultState();
@@ -246,6 +252,7 @@ export const demoSource: DataSource = {
       created_at: new Date().toISOString(),
     };
     demoUsers.push(profile);
+    state.accountContacts[profile.id] = { user_id: profile.id, phone: input.phone, wilaya: input.wilaya, commune: input.commune, updated_at: new Date().toISOString() };
     const session: AuthSession = { user_id: profile.id, email: profile.email, access_token: 'demo-token', mode: 'demo' };
     state.session = session;
     persist();
@@ -268,6 +275,57 @@ export const demoSource: DataSource = {
     Object.assign(p, patch);
     persist();
     return p;
+  },
+
+  async getAccountContactDetails(userId) {
+    await load();
+    return state.accountContacts[userId] ?? {
+      user_id: userId,
+      phone: '',
+      wilaya: '',
+      commune: '',
+      updated_at: new Date().toISOString(),
+    };
+  },
+
+  async updateAccountContactDetails(userId, patch) {
+    await load();
+    const current = await this.getAccountContactDetails(userId);
+    const next = { ...current, ...patch, user_id: userId, updated_at: new Date().toISOString() };
+    state.accountContacts[userId] = next;
+    persist();
+    return next;
+  },
+
+  async listDeliveryAddresses(userId) {
+    await load();
+    return state.deliveryAddresses
+      .filter((address) => address.user_id === userId)
+      .sort((a, b) => Number(b.is_default) - Number(a.is_default) || b.created_at.localeCompare(a.created_at));
+  },
+
+  async saveDeliveryAddress(input) {
+    await load();
+    const now = new Date().toISOString();
+    const existing = input.id ? state.deliveryAddresses.find((address) => address.id === input.id) : undefined;
+    if (existing && existing.user_id !== input.user_id) throw new Error('Address not found');
+    const saved: DeliveryAddress = {
+      ...input,
+      id: existing?.id ?? uid('addr'),
+      created_at: existing?.created_at ?? now,
+      updated_at: now,
+    };
+    if (existing) Object.assign(existing, saved);
+    else state.deliveryAddresses.push(saved);
+    persist();
+    return saved;
+  },
+
+  async deleteDeliveryAddress(id) {
+    await load();
+    const me = state.session?.user_id;
+    state.deliveryAddresses = state.deliveryAddresses.filter((address) => address.id !== id || address.user_id !== me);
+    persist();
   },
 
   async getPreferences(userId) {

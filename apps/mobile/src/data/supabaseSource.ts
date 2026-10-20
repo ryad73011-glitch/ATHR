@@ -15,6 +15,8 @@ import type { DataSource } from './repo';
 import type {
   Battle,
   BattleResult,
+  AccountContactDetails,
+  DeliveryAddress,
   Look,
   LookFilter,
   Paged,
@@ -112,6 +114,9 @@ async updatePassword(password) {
           data: {
             handle: input.handle,
             display_name: input.display_name,
+            phone: input.phone,
+            wilaya: input.wilaya,
+            commune: input.commune,
           },
           emailRedirectTo: AUTH_CALLBACK_URL,
         },
@@ -162,6 +167,73 @@ async updatePassword(password) {
 
       if (error) throw new Error(error.message);
       return data;
+    },
+
+    async getAccountContactDetails(userId) {
+      const { data, error } = await sb
+        .from('account_contact_details')
+        .select('*')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (error) throw new Error(error.message);
+      return (data ?? {
+        user_id: userId,
+        phone: '',
+        wilaya: '',
+        commune: '',
+        updated_at: new Date().toISOString(),
+      }) as AccountContactDetails;
+    },
+
+    async updateAccountContactDetails(userId, patch) {
+      const { data, error } = await sb
+        .from('account_contact_details')
+        .upsert({
+          ...patch,
+          user_id: userId,
+          updated_at: new Date().toISOString(),
+        })
+        .select()
+        .single();
+
+      if (error) throw new Error(error.message);
+      return data as AccountContactDetails;
+    },
+
+    async listDeliveryAddresses(userId) {
+      const { data, error } = await sb
+        .from('delivery_addresses')
+        .select('*')
+        .eq('user_id', userId)
+        .order('is_default', { ascending: false })
+        .order('created_at', { ascending: false });
+
+      if (error) throw new Error(error.message);
+      return (data ?? []) as DeliveryAddress[];
+    },
+
+    async saveDeliveryAddress(address) {
+      const { data, error } = await sb
+        .from('delivery_addresses')
+        .upsert({
+          ...address,
+          updated_at: new Date().toISOString(),
+        })
+        .select()
+        .single();
+
+      if (error) throw new Error(error.message);
+      return data as DeliveryAddress;
+    },
+
+    async deleteDeliveryAddress(id) {
+      const { error } = await sb
+        .from('delivery_addresses')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw new Error(error.message);
     },
 
     async getPreferences(userId) {

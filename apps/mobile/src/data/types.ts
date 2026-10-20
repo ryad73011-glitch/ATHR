@@ -56,6 +56,28 @@ export interface Profile {
   created_at: ISODate;
 }
 
+export interface AccountContactDetails {
+  user_id: ID;
+  phone: string;
+  wilaya: string;
+  commune: string;
+  updated_at: ISODate;
+}
+
+export interface DeliveryAddress {
+  id: ID;
+  user_id: ID;
+  recipient_name: string;
+  phone: string;
+  wilaya: string;
+  commune: string;
+  street_address: string;
+  delivery_note: string | null;
+  is_default: boolean;
+  created_at: ISODate;
+  updated_at: ISODate;
+}
+
 export interface StylePreferences {
   user_id: ID;
   universes: Universe[];

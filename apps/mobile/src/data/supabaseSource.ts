@@ -24,6 +24,7 @@ import type {
   StudioResult,
   WasmChatRequest,
   ProductImageClassification,
+  MerchantReview,
 } from './types';
 import { demoProducts } from './demo/seed';
 
@@ -335,6 +336,35 @@ async updatePassword(password) {
 
       if (error) throw new Error(error.message);
       return data;
+    },
+
+    async listMerchantReviews(merchantId: string): Promise<MerchantReview[]> {
+      const { data, error } = await sb.from('merchant_reviews')
+        .select('*').eq('merchant_id', merchantId).order('created_at', { ascending: false });
+      if (error) throw new Error(error.message);
+      return (data ?? []) as MerchantReview[];
+    },
+
+    async addMerchantReview(merchantId: string, rating: number, comment = ''): Promise<MerchantReview> {
+      const session = await authed();
+      if (!session) throw new Error('Sign in to rate this store.');
+      if (!Number.isInteger(rating) || rating < 1 || rating > 5) throw new Error('Choose a rating from 1 to 5.');
+      const { data, error } = await sb.from('merchant_reviews').insert({
+        merchant_id: merchantId, user_id: session.user.id, rating, comment: comment.trim() || null,
+      }).select('*').single();
+      if (error) throw new Error(error.message);
+      return data as MerchantReview;
+    },
+
+    async updateMerchantReview(reviewId: string, rating: number, comment = ''): Promise<MerchantReview> {
+      const session = await authed();
+      if (!session) throw new Error('Sign in to edit your rating.');
+      if (!Number.isInteger(rating) || rating < 1 || rating > 5) throw new Error('Choose a rating from 1 to 5.');
+      const { data, error } = await sb.from('merchant_reviews').update({
+        rating, comment: comment.trim() || null, updated_at: new Date().toISOString(),
+      }).eq('id', reviewId).eq('user_id', session.user.id).select('*').single();
+      if (error) throw new Error(error.message);
+      return data as MerchantReview;
     },
 
     async applyMerchant(input) {

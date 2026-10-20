@@ -30,6 +30,7 @@ import type {
   BattleResult,
   Collection,
   Comment,
+  AccountContactDetails,
   DeliveryAddress,
   EditorialStory,
   Look,
@@ -73,6 +74,7 @@ interface DemoState {
   merchants: Merchant[];
   prefs: Record<string, StylePreferences>;
   deliveryAddresses: DeliveryAddress[];
+  accountContacts: Record<string, AccountContactDetails>;
 }
 
 const defaultState = (): DemoState => ({
@@ -94,6 +96,7 @@ const defaultState = (): DemoState => ({
   merchants: [...demoMerchants],
   prefs: {},
   deliveryAddresses: [],
+  accountContacts: {},
 });
 
 let state: DemoState = defaultState();
@@ -238,10 +241,7 @@ export const demoSource: DataSource = {
       display_name: input.display_name || input.handle,
       avatar_url: null,
       bio: null,
-      city: input.commune,
-      phone: input.phone,
-      wilaya: input.wilaya,
-      commune: input.commune,
+      city: null,
       role: 'user',
       universe_pref: null,
       preferred_locale: 'en',
@@ -252,6 +252,7 @@ export const demoSource: DataSource = {
       created_at: new Date().toISOString(),
     };
     demoUsers.push(profile);
+    state.accountContacts[profile.id] = { user_id: profile.id, phone: input.phone, wilaya: input.wilaya, commune: input.commune, updated_at: new Date().toISOString() };
     const session: AuthSession = { user_id: profile.id, email: profile.email, access_token: 'demo-token', mode: 'demo' };
     state.session = session;
     persist();
@@ -274,6 +275,26 @@ export const demoSource: DataSource = {
     Object.assign(p, patch);
     persist();
     return p;
+  },
+
+  async getAccountContactDetails(userId) {
+    await load();
+    return state.accountContacts[userId] ?? {
+      user_id: userId,
+      phone: '',
+      wilaya: '',
+      commune: '',
+      updated_at: new Date().toISOString(),
+    };
+  },
+
+  async updateAccountContactDetails(userId, patch) {
+    await load();
+    const current = await this.getAccountContactDetails(userId);
+    const next = { ...current, ...patch, user_id: userId, updated_at: new Date().toISOString() };
+    state.accountContacts[userId] = next;
+    persist();
+    return next;
   },
 
   async listDeliveryAddresses(userId) {

@@ -460,6 +460,41 @@ export const demoSource: DataSource = {
     return product;
   },
 
+  async updateMerchantProduct(productId, merchantId, patch) {
+    await load();
+    const merchant = state.merchants.find((m) => m.id === merchantId);
+    if (!merchant) throw new Error('Store not found.');
+    const product = allProducts().find((p) => p.id === productId && p.merchant_id === merchantId);
+    if (!product) throw new Error('Product not found in this store.');
+    if (patch.title !== undefined) {
+      if (!patch.title.trim()) throw new Error('Product title cannot be empty.');
+      product.title = patch.title.trim();
+    }
+    if (patch.price !== undefined) {
+      if (!Number.isFinite(patch.price) || patch.price <= 0) throw new Error('Price must be greater than zero.');
+      product.price = patch.price;
+    }
+    if (patch.in_stock !== undefined) product.in_stock = patch.in_stock;
+    if (patch.stock_count !== undefined) {
+      if (patch.stock_count !== null && (!Number.isInteger(patch.stock_count) || patch.stock_count < 0)) {
+        throw new Error('Stock must be a non-negative whole number.');
+      }
+      product.stock_count = patch.stock_count;
+    }
+    persist();
+    return product;
+  },
+
+  async deleteMerchantProduct(productId, merchantId) {
+    await load();
+    const index = state.customProducts.findIndex((p) => p.id === productId && p.merchant_id === merchantId);
+    if (index < 0) throw new Error('Only products created in this store can be deleted.');
+    state.customProducts.splice(index, 1);
+    const merchant = state.merchants.find((m) => m.id === merchantId);
+    if (merchant) merchant.product_count = Math.max(0, merchant.product_count - 1);
+    persist();
+  },
+
   async merchantStats(merchantId) {
     await load();
     const clicks = state.clicks.filter((c) => c.merchant_id === merchantId);

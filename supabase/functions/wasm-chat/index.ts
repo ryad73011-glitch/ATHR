@@ -26,6 +26,11 @@ type ChatMessage = {
   content: string;
 };
 
+type ChatImage = {
+  mimeType: 'image/jpeg' | 'image/png' | 'image/webp';
+  base64: string;
+};
+
 function parseResponse(content: string): Record<string, unknown> {
   try {
     const value: unknown = JSON.parse(content);
@@ -104,14 +109,48 @@ Deno.serve(async (req: Request) => {
 
   const message = body.message;
   const rawHistory = body.history ?? [];
+  const rawImages = body.images ?? [];
   const universe = body.universe;
+
+  if (!Array.isArray(rawImages) || rawImages.length > 4) {
+    return json({ error: 'Attach no more than 4 images' }, 400);
+  }
+
+  const allowedMimeTypes = new Set(['image/jpeg', 'image/png', 'image/webp']);
+  const images: ChatImage[] = [];
+  let totalImageCharacters = 0;
+
+  for (const item of rawImages) {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) {
+      return json({ error: 'Invalid image payload' }, 400);
+    }
+    const candidate = item as Record<string, unknown>;
+    if (
+      typeof candidate.mimeType !== 'string' ||
+      !allowedMimeTypes.has(candidate.mimeType) ||
+      typeof candidate.base64 !== 'string' ||
+      candidate.base64.length === 0 ||
+      candidate.base64.length > 4_500_000 ||
+      !/^[A-Za-z0-9+/]+={0,2}$/.test(candidate.base64)
+    ) {
+      return json({ error: 'Invalid or oversized image' }, 400);
+    }
+    totalImageCharacters += candidate.base64.length;
+    if (totalImageCharacters > 4_500_000) {
+      return json({ error: 'Images are too large; attach smaller photos' }, 413);
+    }
+    images.push({
+      mimeType: candidate.mimeType as ChatImage['mimeType'],
+      base64: candidate.base64,
+    });
+  }
 
   if (
     typeof message !== 'string' ||
-    !message.trim() ||
+    (!message.trim() && images.length === 0) ||
     message.length > 2000
   ) {
-    return json({ error: 'Message must contain 1–2000 characters' }, 400);
+    return json({ error: 'Enter a message or attach an image; text must be under 2000 characters' }, 400);
   }
 
   if (
@@ -169,7 +208,8 @@ Deno.serve(async (req: Request) => {
       'For fashion questions, give practical styling advice.',
       'Recommend ATHR products only when relevant and only from the supplied catalogue.',
       'Never invent product IDs, prices, stock status or availability.',
-      'Never claim to have analysed a photo; this endpoint does not receive image content.',
+      'When images are attached, inspect their visible contents and describe clothing, colors, fit, silhouette, style, and practical outfit improvements. Be clear when details are uncertain.',
+      'Never infer sensitive personal traits from a person in an image.',
       'Use the conversation history to understand follow-up messages.',
       'Return only one valid JSON object with keys: message, product_ids, reasoning.',
       'message must be a useful natural-language answer.',
@@ -177,6 +217,18 @@ Deno.serve(async (req: Request) => {
       'reasoning must be an array of short strings.',
       'Do not claim to have placed orders, contacted stores or performed actions you did not perform.',
     ].join(' ');
+
+    const userContent: string | Array<Record<string, unknown>> = images.length
+      ? [
+          { type: 'text', text: message.trim() || 'Analyse this image for personal styling. Describe the visible clothing and suggest practical improvements.' },
+          ...images.map((image) => ({
+            type: 'image_url',
+            image_url: {
+              url: `data:${image.mimeType};base64,${image.base64}`,
+            },
+          })),
+        ]
+      : message.trim();
 
     const response = await fetch(OPENROUTER_URL, {
       method: 'POST',
@@ -200,7 +252,7 @@ Deno.serve(async (req: Request) => {
             role: item.role,
             content: item.content,
           })),
-          { role: 'user', content: message.trim() },
+          { role: 'user', content: userContent },
         ],
         temperature: 0.5,
         max_tokens: 1200,

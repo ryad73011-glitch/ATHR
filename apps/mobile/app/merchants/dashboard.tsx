@@ -137,6 +137,7 @@ export default function MerchantDashboard() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['mproducts', activeMerchantId] });
+      qc.invalidateQueries({ queryKey: ['owned-merchant'] });
       toast.show(`${t('merchants.addProduct')} ✓`);
       setAdding(false);
       setTitle('');
@@ -166,6 +167,7 @@ export default function MerchantDashboard() {
       qc.invalidateQueries({ queryKey: ['mproducts', activeMerchantId] });
       qc.invalidateQueries({ queryKey: ['mstats', activeMerchantId] });
       qc.invalidateQueries({ queryKey: ['merchants'] });
+      qc.invalidateQueries({ queryKey: ['owned-merchant'] });
       toast.show('Product deleted.');
     },
     onError: (error) => toast.show(error instanceof Error ? error.message : 'Could not delete product.'),

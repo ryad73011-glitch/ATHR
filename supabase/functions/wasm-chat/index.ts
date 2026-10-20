@@ -283,7 +283,7 @@ Deno.serve(async (req: Request) => {
       }
 
       const safeMessage = providerMessage
-        .replace(/[\\r\\n]+/g, ' ')
+        .replace(/[\r\n]+/g, ' ')
         .slice(0, 240);
       console.error(`OpenRouter returned HTTP ${response.status}`);
       return json({

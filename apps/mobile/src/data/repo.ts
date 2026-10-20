@@ -50,6 +50,9 @@ email: string;
 password: string;
 handle: string;
 display_name: string;
+phone: string;
+wilaya: string;
+commune: string;
 }): Promise<AuthSession>;
 
 /**

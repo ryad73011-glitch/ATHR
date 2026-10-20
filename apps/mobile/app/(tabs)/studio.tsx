@@ -1,4 +1,5 @@
 
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useMutation } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -121,11 +122,73 @@ export default function Studio() {
     useState<Universe>('CALM');
   const [palette, setPalette] = useState<string[]>([]);
   const [images, setImages] = useState<string[]>([]);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [last, setLast] = useState<StudioResult | null>(null);
-  const [showSettings, setShowSettings] = useState(false);
-
   
+const [messages, setMessages] = useState<ChatMessage[]>([]);
+const [messagesLoadedFor, setMessagesLoadedFor] = useState<string | null>(null);
+const [last, setLast] = useState<StudioResult | null>(null);
+const [showSettings, setShowSettings] = useState(false);
+
+const sessionUserId = useSession(
+  (state) => state.session?.user_id ?? 'guest',
+);
+const storageKey = `@athr/wasm-chat/v1/${sessionUserId}`;
+
+React.useEffect(() => {
+  let active = true;
+
+  setMessagesLoadedFor(null);
+  setMessages([]);
+
+  AsyncStorage.getItem(storageKey)
+    .then((stored) => {
+      if (!active) return;
+
+      if (stored) {
+        const parsed: unknown = JSON.parse(stored);
+
+        if (Array.isArray(parsed)) {
+          const restored = parsed.filter(
+            (item): item is ChatMessage => {
+              if (!item || typeof item !== 'object') return false;
+
+              const message = item as Partial<ChatMessage>;
+
+              return (
+                typeof message.id === 'string' &&
+                (message.role === 'user' ||
+                  message.role === 'assistant') &&
+                typeof message.content === 'string' &&
+                typeof message.created_at === 'string'
+              );
+            },
+          );
+
+          setMessages(restored.slice(-200));
+        }
+      }
+
+      setMessagesLoadedFor(storageKey);
+    })
+    .catch(() => {
+      // Do not overwrite saved data if loading fails.
+    });
+
+  return () => {
+    active = false;
+  };
+}, [storageKey]);
+
+React.useEffect(() => {
+  if (messagesLoadedFor !== storageKey) return;
+
+  AsyncStorage.setItem(
+    storageKey,
+    JSON.stringify(messages.slice(-200)),
+  ).catch(() => {
+    // A storage error must not interrupt the chat.
+  });
+}, [messages, messagesLoadedFor, storageKey]);
+
   const run = useMutation({
     mutationFn: async (request: ChatRequest) => {
       if (request.images.length > 0) {
@@ -133,7 +196,7 @@ export default function Studio() {
           'Image analysis is not available yet. Send a text message instead.',
         );
       }
-
+      
       const history = messages
         .filter(
           (item) =>
@@ -168,11 +231,13 @@ export default function Studio() {
         (message) => message.role !== 'user',
       );
 
-      setMessages((current) => [
-        ...current,
-        userMessage,
-        ...assistantMessages,
-      ]);
+     setMessages((current) =>
+  [
+    ...current,
+    userMessage,
+    ...assistantMessages,
+  ].slice(-200),
+);
 
       setLast(result);
       setDraft('');

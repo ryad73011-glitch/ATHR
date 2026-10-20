@@ -112,6 +112,9 @@ async updatePassword(password) {
           data: {
             handle: input.handle,
             display_name: input.display_name,
+            phone: input.phone,
+            wilaya: input.wilaya,
+            commune: input.commune,
           },
           emailRedirectTo: AUTH_CALLBACK_URL,
         },

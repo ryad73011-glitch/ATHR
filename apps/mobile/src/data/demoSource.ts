@@ -40,6 +40,7 @@ import type {
   Profile,
   Report,
   StudioResult,
+  WasmChatRequest,
   StylePreferences,
   Subscription,
   SubscriptionPlan,
@@ -660,6 +661,29 @@ export const demoSource: DataSource = {
       message: `Payments are not configured in demo mode. To enable ${plan}, add Stripe / Apple / Google credentials (see docs/MONETIZATION.md).`,
     };
   },
+
+   async runWasmChat(_req: WasmChatRequest) {
+     await delay(350);
+
+     return {
+       messages: [
+         {
+           id: `wasm_demo_${Date.now()}`,
+           role: 'assistant' as const,
+           content:
+             'WASM chat is not connected in demo mode yet. Connect the live Supabase AI endpoint to enable general conversation.',
+            created_at: new Date().toISOString(),
+          },
+        ],
+        product_ids: [],
+        reasoning: [],
+        engine: 'local-engine' as const,
+        model: null,
+        total_cost: 0,
+        currency: 'DZD' as const,
+        degraded_reason: 'Demo mode does not call OpenRouter.',
+      };
+    },
 
   async runStudio(req) {
     await load();

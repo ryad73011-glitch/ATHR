@@ -327,6 +327,18 @@ export interface StudioRequest {
   image_uris?: string[];
 }
 
+
+export interface WasmChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+export interface WasmChatRequest {
+  message: string;
+  history: WasmChatMessage[];
+  universe?: Universe;
+}
+
 export interface StudioResult {
   messages: StudioMessage[];
   product_ids: ID[];

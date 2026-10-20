@@ -21,6 +21,8 @@ import type {
   Product,
   ProductFilter,
   StudioRequest,
+  StudioResult,
+  WasmChatRequest,
 } from './types';
 import { demoProducts } from './demo/seed';
 
@@ -785,7 +787,41 @@ async updatePassword(password) {
         };
       }
     },
+    
+        async runWasmChat(
+      req: WasmChatRequest,
+    ): Promise<StudioResult> {
+      const { data, error } = await sb.functions.invoke(
+        'wasm-chat',
+        {
+          body: {
+            message: req.message,
+            history: req.history,
+            universe: req.universe,
+          },
+        },
+      );
 
+      if (error) {
+        throw new Error(
+          'WASM chat request failed. Check Supabase deployment and configuration.',
+        );
+      }
+
+      const body = data as {
+        result?: StudioResult;
+        error?: string;
+      };
+
+      if (!body?.result) {
+        throw new Error(
+          body?.error ?? 'WASM returned an empty response',
+        );
+      }
+
+      return body.result;
+    },
+    
     async adminOverview() {
       const { data, error } = await sb.rpc('admin_overview');
       if (error) throw new Error(error.message);

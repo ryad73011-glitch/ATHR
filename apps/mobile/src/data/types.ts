@@ -89,6 +89,21 @@ export interface Merchant {
   created_at: ISODate;
 }
 
+export type ProductAudience = 'women' | 'men' | 'unisex' | 'unknown';
+export type ProductClassificationStatus = 'pending' | 'classified' | 'review';
+
+export interface ProductImageClassification {
+  category: Category;
+  target_audience: ProductAudience;
+  confidence: number;
+  colors: string[];
+  universe: Universe;
+  description: string;
+  classification_status: ProductClassificationStatus;
+  review_required: boolean;
+  model: string;
+}
+
 export interface Product {
   id: ID;
   merchant_id: ID;
@@ -112,6 +127,10 @@ export interface Product {
   rating: number;
   created_at: ISODate;
   description: string | null;
+  target_audience?: ProductAudience;
+  classification_status?: ProductClassificationStatus;
+  classification_confidence?: number | null;
+  image_analysis?: Record<string, unknown>;
 }
 
 export interface LookItem {

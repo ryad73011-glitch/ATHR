@@ -137,7 +137,7 @@ export function MerchantCard({ merchant }: { merchant: Merchant }) {
             {merchant.verified ? <Ionicons name="shield-checkmark" size={15} color={tokens.success} /> : null}
           </View>
           <Text variant="caption" faint numberOfLines={1}>
-            {merchant.city} · {merchant.product_count} products · ★ {merchant.rating.toFixed(1)}
+            {merchant.city} · {merchant.product_count} products · ★ {merchant.rating.toFixed(1)} ({merchant.review_count} reviews)
           </Text>
         </View>
         <UniverseBadge universe={merchant.plan === 'flagship' ? 'CALM' : 'CHAOS'} />

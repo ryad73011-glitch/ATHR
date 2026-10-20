@@ -19,6 +19,9 @@ export default function SignUp() {
   const [handle, setHandle] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [phone, setPhone] = useState('');
+  const [wilaya, setWilaya] = useState('');
+  const [commune, setCommune] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -27,9 +30,12 @@ export default function SignUp() {
     setError(null);
     try {
       if (!name.trim()) throw new Error('Enter your name.');
+      if (!/^[+0-9 ()-]{8,20}$/.test(phone.trim())) throw new Error('Enter a valid phone number.');
+      if (!wilaya.trim()) throw new Error('Enter your wilaya.');
+      if (!commune.trim()) throw new Error('Enter your commune.');
       if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw new Error('Enter a valid email.');
       if (password.length < 6) throw new Error('Password must be at least 6 characters.');
-      await signUp(source, { email, password, handle: handle || name.toLowerCase().replace(/\s+/g, '.'), display_name: name });
+      await signUp(source, { email, password, handle: handle || name.toLowerCase().replace(/\s+/g, '.'), display_name: name.trim(), phone: phone.trim(), wilaya: wilaya.trim(), commune: commune.trim() });
       toast.show(`${t('common.signup')} ✓`);
       router.replace('/(tabs)');
     } catch (e) {
@@ -46,6 +52,9 @@ export default function SignUp() {
       <Input label="Handle" value={handle} onChangeText={setHandle} autoCapitalize="none" placeholder="@you" />
       <Input label={t('common.email')} value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" />
       <Input label={t('common.password')} value={password} onChangeText={setPassword} secureTextEntry />
+      <Input label="Phone number" value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
+      <Input label="Wilaya" value={wilaya} onChangeText={setWilaya} />
+      <Input label="Commune" value={commune} onChangeText={setCommune} />
       {error ? (
         <Text variant="small" style={{ color: '#D9544D', marginBottom: spacing.md }}>
           {error}

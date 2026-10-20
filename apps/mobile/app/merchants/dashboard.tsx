@@ -91,12 +91,12 @@ export default function MerchantDashboard() {
   const stats = useQuery({
     queryKey: ['mstats', activeMerchantId],
     queryFn: () => source.merchantStats(activeMerchantId),
-    enabled: Boolean(activeMerchantId),
+    enabled: Boolean(activeMerchantId) && (source.mode === 'demo' || Boolean(ownedMerchant.data?.approved)),
   });
   const products = useQuery({
     queryKey: ['mproducts', activeMerchantId],
     queryFn: () => source.listProducts({ merchant_id: activeMerchantId, limit: 50 }),
-    enabled: Boolean(activeMerchantId),
+    enabled: Boolean(activeMerchantId) && (source.mode === 'demo' || Boolean(ownedMerchant.data?.approved)),
   });
 
   const add = useMutation({
@@ -149,11 +149,54 @@ export default function MerchantDashboard() {
 
   return (
     <Screen scroll insetBottom>
-      <Header title={t('merchants.dashboard')} subtitle={activeMerchantName} onBack={() => router.back()} right={<Button label={t('merchants.addProduct')} small disabled={source.mode === 'live' && !activeMerchantId} onPress={() => setAdding((a) => !a)} />} />
+      <Header
+        title={t('merchants.dashboard')}
+        subtitle={activeMerchantName}
+        onBack={() => router.back()}
+        right={
+          <Button
+            label={t('merchants.addProduct')}
+            small
+            disabled={source.mode === 'live' && (!activeMerchantId || !ownedMerchant.data?.approved)}
+            onPress={() => setAdding((a) => !a)}
+          />
+        }
+      />
+
+      {source.mode === 'live' && ownedMerchant.isLoading ? <Skeleton width="100%" height={88} style={{ marginBottom: spacing.lg }} /> : null}
 
       {source.mode === 'live' && !ownedMerchant.isLoading && !activeMerchantId ? (
-        <Card style={{ padding: spacing.md, marginBottom: spacing.lg }}>
-          <Text variant="body">No merchant profile is linked to this account yet. Register or link a merchant profile before adding products.</Text>
+        <Card style={{ padding: spacing.lg, marginBottom: spacing.lg, gap: spacing.sm }}>
+          <Text variant="title">Open your ATHR store</Text>
+          <Text variant="body" muted>No store is linked to this account yet. Submit a store application to start selling on ATHR.</Text>
+          <Button label="Register your store" full onPress={() => router.push('/merchants')} />
+        </Card>
+      ) : null}
+
+      {source.mode === 'live' && activeMerchantId && ownedMerchant.data && !ownedMerchant.data.approved ? (
+        <Card style={{ padding: spacing.lg, marginBottom: spacing.lg, gap: spacing.sm }}>
+          <Text variant="title">Application under review</Text>
+          <Badge label="Pending approval" />
+          <Text variant="body" muted>
+            Your store, {ownedMerchant.data.name}, is waiting for ATHR approval. Product publishing and analytics unlock after approval.
+          </Text>
+          <Text variant="caption" faint>Submitted {new Date(ownedMerchant.data.created_at).toLocaleDateString()}</Text>
+        </Card>
+      ) : null}
+
+      {source.mode === 'live' && ownedMerchant.data?.approved ? (
+        <Card style={{ padding: spacing.lg, marginBottom: spacing.lg, gap: spacing.sm }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <View style={{ flex: 1 }}>
+              <Text variant="title">{ownedMerchant.data.name}</Text>
+              <Text variant="caption" muted>{ownedMerchant.data.city} · {ownedMerchant.data.product_count} products</Text>
+            </View>
+            <View style={{ alignItems: 'flex-end' }}>
+              <Text variant="title">{ownedMerchant.data.review_count ? ownedMerchant.data.rating.toFixed(1) : '—'}/5</Text>
+              <Text variant="caption" faint>{ownedMerchant.data.review_count} ratings</Text>
+            </View>
+          </View>
+          <Button label="Read customer ratings" full variant="outline" onPress={() => router.push(`/merchants/reviews?merchantId=${ownedMerchant.data!.id}`)} />
         </Card>
       ) : null}
 

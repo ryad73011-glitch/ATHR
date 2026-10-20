@@ -218,6 +218,8 @@ export default function MerchantDashboard() {
         </Card>
       ) : null}
 
+      {(source.mode === 'demo' || Boolean(ownedMerchant.data?.approved)) ? (
+        <>
       <View style={{ flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.lg }}>
         <Stat label={t('merchants.impressions')} value={String(stats.data?.impressions ?? 0)} />
         <Stat label={t('merchants.clicks')} value={String(stats.data?.clicks ?? 0)} />
@@ -254,6 +256,8 @@ export default function MerchantDashboard() {
       {(products.data?.items ?? []).map((p) => (
         <ProductRow key={p.id} product={p} />
       ))}
+        </>
+      ) : null}
     </Screen>
   );
 }

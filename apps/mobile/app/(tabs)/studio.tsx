@@ -293,7 +293,7 @@ React.useEffect(() => {
       const uri = asset?.uri;
       if (uri && asset.base64) {
         const mimeType = asset.mimeType?.toLowerCase();
-        const supportedMime =
+        const supportedMime: WasmChatImage['mimeType'] =
           mimeType === 'image/png' || mimeType === 'image/webp'
             ? mimeType
             : 'image/jpeg';

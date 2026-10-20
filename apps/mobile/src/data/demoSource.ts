@@ -30,6 +30,7 @@ import type {
   BattleResult,
   Collection,
   Comment,
+  DeliveryAddress,
   EditorialStory,
   Look,
   LookFilter,
@@ -71,6 +72,7 @@ interface DemoState {
   customLooks: Look[];
   merchants: Merchant[];
   prefs: Record<string, StylePreferences>;
+  deliveryAddresses: DeliveryAddress[];
 }
 
 const defaultState = (): DemoState => ({
@@ -91,6 +93,7 @@ const defaultState = (): DemoState => ({
   customLooks: [],
   merchants: [...demoMerchants],
   prefs: {},
+  deliveryAddresses: [],
 });
 
 let state: DemoState = defaultState();
@@ -271,6 +274,37 @@ export const demoSource: DataSource = {
     Object.assign(p, patch);
     persist();
     return p;
+  },
+
+  async listDeliveryAddresses(userId) {
+    await load();
+    return state.deliveryAddresses
+      .filter((address) => address.user_id === userId)
+      .sort((a, b) => Number(b.is_default) - Number(a.is_default) || b.created_at.localeCompare(a.created_at));
+  },
+
+  async saveDeliveryAddress(input) {
+    await load();
+    const now = new Date().toISOString();
+    const existing = input.id ? state.deliveryAddresses.find((address) => address.id === input.id) : undefined;
+    if (existing && existing.user_id !== input.user_id) throw new Error('Address not found');
+    const saved: DeliveryAddress = {
+      ...input,
+      id: existing?.id ?? uid('addr'),
+      created_at: existing?.created_at ?? now,
+      updated_at: now,
+    };
+    if (existing) Object.assign(existing, saved);
+    else state.deliveryAddresses.push(saved);
+    persist();
+    return saved;
+  },
+
+  async deleteDeliveryAddress(id) {
+    await load();
+    const me = state.session?.user_id;
+    state.deliveryAddresses = state.deliveryAddresses.filter((address) => address.id !== id || address.user_id !== me);
+    persist();
   },
 
   async getPreferences(userId) {

@@ -798,6 +798,7 @@ async updatePassword(password) {
             message: req.message,
             history: req.history,
             universe: req.universe,
+            images: req.images ?? [],
           },
         },
       );

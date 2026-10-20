@@ -15,6 +15,7 @@ import type { DataSource } from './repo';
 import type {
   Battle,
   BattleResult,
+  AccountContactDetails,
   DeliveryAddress,
   Look,
   LookFilter,
@@ -166,6 +167,38 @@ async updatePassword(password) {
 
       if (error) throw new Error(error.message);
       return data;
+    },
+
+    async getAccountContactDetails(userId) {
+      const { data, error } = await sb
+        .from('account_contact_details')
+        .select('*')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (error) throw new Error(error.message);
+      return (data ?? {
+        user_id: userId,
+        phone: '',
+        wilaya: '',
+        commune: '',
+        updated_at: new Date().toISOString(),
+      }) as AccountContactDetails;
+    },
+
+    async updateAccountContactDetails(userId, patch) {
+      const { data, error } = await sb
+        .from('account_contact_details')
+        .upsert({
+          ...patch,
+          user_id: userId,
+          updated_at: new Date().toISOString(),
+        })
+        .select()
+        .single();
+
+      if (error) throw new Error(error.message);
+      return data as AccountContactDetails;
     },
 
     async listDeliveryAddresses(userId) {

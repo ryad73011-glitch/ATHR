@@ -1,6 +1,7 @@
 import type {
 AffiliateClick,
 AppNotification,
+DeliveryAddress,
 AuditLog,
 Battle,
 BattleResult,
@@ -65,6 +66,9 @@ commune: string;
 signOut(): Promise<void>;
 getProfile(id: string): Promise<Profile>;
 updateProfile(id: string, patch: Partial<Profile>): Promise<Profile>;
+listDeliveryAddresses(userId: string): Promise<DeliveryAddress[]>;
+saveDeliveryAddress(address: Omit<DeliveryAddress, 'id' | 'created_at' | 'updated_at'> & { id?: string }): Promise<DeliveryAddress>;
+deleteDeliveryAddress(id: string): Promise<void>;
 getPreferences(userId: string): Promise<StylePreferences>;
 updatePreferences(userId: string, patch: Partial<StylePreferences>): Promise<StylePreferences>;
 

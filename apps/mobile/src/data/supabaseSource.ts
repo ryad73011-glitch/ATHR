@@ -368,9 +368,46 @@ async updatePassword(password) {
     },
 
     async applyMerchant(input) {
+      const session = await authed();
+      if (!session) throw new Error('Sign in before registering your store.');
+
+      const { data: existing, error: existingError } = await sb
+        .from('merchants')
+        .select('id, approved')
+        .eq('owner_id', session.user.id)
+        .limit(1)
+        .maybeSingle();
+      if (existingError) throw new Error(existingError.message);
+      if (existing) {
+        throw new Error(existing.approved
+          ? 'This account already has a store linked to it.'
+          : 'Your store application is already awaiting review.');
+      }
+
+      const name = input.name.trim();
+      const city = input.city.trim();
+      if (!name || !city) throw new Error('Store name and city are required.');
+
+      const slugBase = name.toLowerCase()
+        .normalize('NFKD')
+        .replace(/[\\u0300-\\u036f]/g, '')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '')
+        .slice(0, 48) || 'store';
+      const slug = `${slugBase}-${session.user.id.slice(0, 8)}`;
+
       const { data, error } = await sb
         .from('merchants')
-        .insert({ ...input, approved: false })
+        .insert({
+          name,
+          city,
+          description: input.description?.trim() || null,
+          country: input.country ?? 'DZ',
+          slug,
+          owner_id: session.user.id,
+          approved: false,
+          verified: false,
+        })
         .select()
         .single();
 
@@ -414,9 +451,38 @@ async updatePassword(password) {
     },
 
     async upsertProduct(input, merchantId) {
+      const session = await authed();
+      if (!session) throw new Error('Sign in before adding products.');
+
+      const { data: merchant, error: merchantError } = await sb
+        .from('merchants')
+        .select('id, name, owner_id, approved')
+        .eq('id', merchantId)
+        .maybeSingle();
+      if (merchantError) throw new Error(merchantError.message);
+      if (!merchant || merchant.owner_id !== session.user.id) {
+        throw new Error('You do not have permission to manage this store.');
+      }
+      if (!merchant.approved) {
+        throw new Error('Your store must be approved before publishing products.');
+      }
+
       const { data, error } = await sb
         .from('products')
-        .insert({ ...input, merchant_id: merchantId })
+        .insert({
+          ...input,
+          merchant_id: merchantId,
+          merchant_name: merchant.name,
+          brand: input.brand?.trim() || merchant.name,
+          currency: input.currency ?? 'DZD',
+          colors: input.colors ?? [],
+          sizes: input.sizes ?? [],
+          images: input.images ?? [],
+          occasions: input.occasions ?? ['everyday'],
+          target_audience: input.target_audience ?? 'unknown',
+          classification_status: input.classification_status ?? 'pending',
+          image_analysis: input.image_analysis ?? {},
+        })
         .select()
         .single();
 

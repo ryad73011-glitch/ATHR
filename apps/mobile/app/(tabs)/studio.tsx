@@ -30,6 +30,7 @@ import type {
   StudioMessage,
   StudioResult,
   Universe,
+  WasmChatImage,
 } from '../../src/data/types';
 import { useLocale } from '../../src/i18n';
 import { useSession } from '../../src/store/session';
@@ -43,6 +44,7 @@ type ChatMessage = StudioMessage & {
 type ChatRequest = {
   text: string;
   images: string[];
+  imagePayloads: WasmChatImage[];
   occasion: Occasion;
   budget: string;
   universe: Universe;
@@ -122,6 +124,7 @@ export default function Studio() {
     useState<Universe>('CALM');
   const [palette, setPalette] = useState<string[]>([]);
   const [images, setImages] = useState<string[]>([]);
+  const [imagePayloads, setImagePayloads] = useState<WasmChatImage[]>([]);
   
 const [messages, setMessages] = useState<ChatMessage[]>([]);
 const [messagesLoadedFor, setMessagesLoadedFor] = useState<string | null>(null);
@@ -191,12 +194,6 @@ React.useEffect(() => {
 
   const run = useMutation({
     mutationFn: async (request: ChatRequest) => {
-      if (request.images.length > 0) {
-        throw new Error(
-          'Image analysis is not available yet. Send a text message instead.',
-        );
-      }
-      
       const history = messages
         .filter(
           (item) =>
@@ -213,6 +210,7 @@ React.useEffect(() => {
         message: request.text,
         history,
         universe: request.universe,
+        images: request.imagePayloads,
       });
     },
 
@@ -242,6 +240,7 @@ React.useEffect(() => {
       setLast(result);
       setDraft('');
       setImages([]);
+      setImagePayloads([]);
 
       if (result.degraded_reason) {
         toast.show(t('studio.degraded'));
@@ -270,6 +269,7 @@ React.useEffect(() => {
     run.mutate({
       text,
       images: [...images],
+      imagePayloads: [...imagePayloads],
       occasion,
       budget,
       universe,
@@ -283,14 +283,28 @@ React.useEffect(() => {
         await ImagePicker.launchImageLibraryAsync({
           mediaTypes: ['images'],
           allowsMultipleSelection: false,
-          quality: 0.7,
+          quality: 0.65,
+          base64: true,
         });
 
       if (result.canceled) return;
 
-      const uri = result.assets[0]?.uri;
-      if (uri) {
+      const asset = result.assets[0];
+      const uri = asset?.uri;
+      if (uri && asset.base64) {
+        const mimeType = asset.mimeType?.toLowerCase();
+        const supportedMime =
+          mimeType === 'image/png' || mimeType === 'image/webp'
+            ? mimeType
+            : 'image/jpeg';
+
         setImages((current) => [...current, uri].slice(-4));
+        setImagePayloads((current) => [
+          ...current,
+          { mimeType: supportedMime, base64: asset.base64! },
+        ].slice(-4));
+      } else {
+        toast.show('Could not read this image. Please choose another photo.');
       }
     } catch {
       toast.show(t('common.error'));
@@ -882,11 +896,14 @@ React.useEffect(() => {
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel="Remove attached image"
-                    onPress={() =>
+                    onPress={() => {
                       setImages((current) =>
                         current.filter((_, i) => i !== index),
-                      )
-                    }
+                      );
+                      setImagePayloads((current) =>
+                        current.filter((_, i) => i !== index),
+                      );
+                    }}
                     style={[
                       styles.removeImage,
                       { backgroundColor: tokens.bgElevated },

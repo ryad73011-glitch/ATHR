@@ -10,7 +10,7 @@ interface SessionState {
   prefs: StylePreferences | null;
   init: (source: DataSource) => Promise<void>;
   signIn: (source: DataSource, email: string, password: string) => Promise<void>;
-  signUp: (source: DataSource, input: { email: string; password: string; handle: string; display_name: string }) => Promise<void>;
+  signUp: (source: DataSource, input: { email: string; password: string; handle: string; display_name: string; phone: string; wilaya: string; commune: string }) => Promise<void>;
   signOut: (source: DataSource) => Promise<void>;
   refresh: (source: DataSource) => Promise<void>;
 }

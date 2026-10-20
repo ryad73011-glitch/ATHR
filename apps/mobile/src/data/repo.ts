@@ -14,6 +14,7 @@ Outfit,
 Paged,
 Product,
 ProductFilter,
+ProductImageClassification,
 Profile,
 Report,
 StudioRequest,
@@ -84,6 +85,8 @@ category: Product['category'];
 },
 merchantId: string,
 ): Promise<Product>;
+classifyProductImage(imageBase64: string, mimeType: string): Promise<ProductImageClassification>;
+uploadProductImage(imageBase64: string, mimeType: string): Promise<string>;
 merchantStats(merchantId: string): Promise<{
 impressions: number;
 clicks: number;

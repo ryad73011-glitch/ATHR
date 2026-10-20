@@ -1,10 +1,33 @@
--- ATHR: account contact details and saved delivery addresses.
--- Existing profiles remain valid; new fields are nullable for backward compatibility.
+-- ATHR: private account contact details and saved delivery addresses.
+-- Contact details are deliberately separate from public profiles.
 
-alter table public.profiles
-  add column if not exists phone text,
-  add column if not exists wilaya text,
-  add column if not exists commune text;
+create table if not exists public.account_contact_details (
+  user_id uuid primary key references public.profiles(id) on delete cascade,
+  phone text not null default '',
+  wilaya text not null default '',
+  commune text not null default '',
+  updated_at timestamptz not null default now()
+);
+
+alter table public.account_contact_details enable row level security;
+
+drop policy if exists account_contact_details_select_own on public.account_contact_details;
+create policy account_contact_details_select_own
+  on public.account_contact_details for select
+  using (user_id = auth.uid());
+
+drop policy if exists account_contact_details_insert_own on public.account_contact_details;
+create policy account_contact_details_insert_own
+  on public.account_contact_details for insert
+  with check (user_id = auth.uid());
+
+drop policy if exists account_contact_details_update_own on public.account_contact_details;
+create policy account_contact_details_update_own
+  on public.account_contact_details for update
+  using (user_id = auth.uid())
+  with check (user_id = auth.uid());
+
+grant select, insert, update on public.account_contact_details to authenticated;
 
 -- Private delivery addresses. A user can save more than one (home/work).
 create table if not exists public.delivery_addresses (
@@ -49,7 +72,7 @@ create policy delivery_addresses_delete_own
 
 grant select, insert, update, delete on public.delivery_addresses to authenticated;
 
--- Extend the existing auth trigger so sign-up metadata is saved to the profile.
+-- Extend the existing auth trigger so sign-up metadata is saved privately.
 create or replace function public.handle_new_user()
 returns trigger
 language plpgsql
@@ -57,24 +80,27 @@ security definer
 set search_path = public
 as $$
 begin
-  insert into public.profiles (
-    id, email, handle, display_name, phone, wilaya, commune, city
-  )
+  insert into public.profiles (id, email, handle, display_name)
   values (
     new.id,
     new.email,
     coalesce(new.raw_user_meta_data->>'handle', split_part(new.email, '@', 1)),
-    coalesce(new.raw_user_meta_data->>'display_name', split_part(new.email, '@', 1)),
-    nullif(trim(new.raw_user_meta_data->>'phone'), ''),
-    nullif(trim(new.raw_user_meta_data->>'wilaya'), ''),
-    nullif(trim(new.raw_user_meta_data->>'commune'), ''),
-    nullif(trim(new.raw_user_meta_data->>'commune'), '')
+    coalesce(new.raw_user_meta_data->>'display_name', split_part(new.email, '@', 1))
   )
-  on conflict (id) do update set
+  on conflict (id) do nothing;
+
+  insert into public.account_contact_details (user_id, phone, wilaya, commune)
+  values (
+    new.id,
+    coalesce(nullif(trim(new.raw_user_meta_data->>'phone'), ''), ''),
+    coalesce(nullif(trim(new.raw_user_meta_data->>'wilaya'), ''), ''),
+    coalesce(nullif(trim(new.raw_user_meta_data->>'commune'), ''), '')
+  )
+  on conflict (user_id) do update set
     phone = excluded.phone,
     wilaya = excluded.wilaya,
     commune = excluded.commune,
-    city = coalesce(excluded.city, public.profiles.city);
+    updated_at = now();
 
   insert into public.style_preferences (user_id)
   values (new.id)

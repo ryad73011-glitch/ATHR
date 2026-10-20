@@ -15,6 +15,7 @@ import type { DataSource } from './repo';
 import type {
   Battle,
   BattleResult,
+  DeliveryAddress,
   Look,
   LookFilter,
   Paged,
@@ -165,6 +166,41 @@ async updatePassword(password) {
 
       if (error) throw new Error(error.message);
       return data;
+    },
+
+    async listDeliveryAddresses(userId) {
+      const { data, error } = await sb
+        .from('delivery_addresses')
+        .select('*')
+        .eq('user_id', userId)
+        .order('is_default', { ascending: false })
+        .order('created_at', { ascending: false });
+
+      if (error) throw new Error(error.message);
+      return (data ?? []) as DeliveryAddress[];
+    },
+
+    async saveDeliveryAddress(address) {
+      const { data, error } = await sb
+        .from('delivery_addresses')
+        .upsert({
+          ...address,
+          updated_at: new Date().toISOString(),
+        })
+        .select()
+        .single();
+
+      if (error) throw new Error(error.message);
+      return data as DeliveryAddress;
+    },
+
+    async deleteDeliveryAddress(id) {
+      const { error } = await sb
+        .from('delivery_addresses')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw new Error(error.message);
     },
 
     async getPreferences(userId) {

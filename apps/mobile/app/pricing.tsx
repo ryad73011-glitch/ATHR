@@ -1,8 +1,13 @@
+import { useMutation } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import React from 'react';
 import { View } from 'react-native';
+import * as WebBrowser from 'expo-web-browser';
 
-import { Badge, Card, Header, Screen, Text } from '../src/components/ui';
+import { Badge, Button, Card, Header, Screen, Text, useToast } from '../src/components/ui';
+import { useDataSource } from '../src/data';
+import type { MerchantSubscriptionPlan } from '../src/data/types';
+import { useSession } from '../src/store/session';
 import { spacing } from '../src/theme/tokens';
 import { useTheme } from '../src/theme/ThemeProvider';
 
@@ -110,12 +115,18 @@ function PlanCard({
   period,
   features,
   accent,
+  onAction,
+  actionLabel,
+  actionLoading = false,
 }: {
   name: string;
   price: string;
   period?: string;
   features: string[];
   accent?: string;
+  onAction?: () => void;
+  actionLabel?: string;
+  actionLoading?: boolean;
 }) {
   return (
     <Card style={{ padding: spacing.lg, marginBottom: spacing.md }}>
@@ -129,13 +140,44 @@ function PlanCard({
       {features.map((feature) => (
         <Text key={feature} variant="small" muted style={{ marginBottom: spacing.xs }}>• {feature}</Text>
       ))}
+      {onAction && actionLabel ? (
+        <Button label={actionLabel} full loading={actionLoading} disabled={actionLoading} onPress={onAction} />
+      ) : null}
     </Card>
   );
 }
 
 export default function Pricing() {
   const router = useRouter();
+  const source = useDataSource();
+  const session = useSession((state) => state.session);
+  const toast = useToast();
   const { tokens } = useTheme();
+
+  const merchantCheckout = useMutation({
+    mutationFn: async (plan: MerchantSubscriptionPlan) => {
+      if (!session?.user_id) {
+        return { status: 'not_configured' as const, message: 'Sign in with the account that owns the shop before subscribing.' };
+      }
+      const merchants = await source.listMerchants();
+      const merchant = merchants.find((item) => item.owner_id === session.user_id);
+      if (!merchant) {
+        return { status: 'not_configured' as const, message: 'No shop is linked to this account. Create or link a merchant profile first.' };
+      }
+      return source.requestMerchantCheckout(plan, merchant.id);
+    },
+    onSuccess: async (result) => {
+      toast.show(result.message);
+      if (result.status === 'url' && result.url) {
+        try {
+          await WebBrowser.openBrowserAsync(result.url);
+        } catch {
+          toast.show('Checkout is ready, but this device could not open it.');
+        }
+      }
+    },
+    onError: () => toast.show('Could not prepare merchant checkout. No payment was taken.'),
+  });
 
   return (
     <Screen scroll insetBottom>
@@ -152,7 +194,12 @@ export default function Pricing() {
         Premium raises feature allowances; exact cloud-AI limits will be enforced server-side and shown before purchase.
       </Text>
       {AI_PLANS.map((plan) => (
-        <PlanCard key={plan.name} {...plan} />
+        <PlanCard
+          key={plan.name}
+          {...plan}
+          onAction={plan.name === 'ATHR Premium' || plan.name === 'ATHR Premium Annual' ? () => router.push('/profile/subscription') : undefined}
+          actionLabel={plan.name.includes('Premium') ? 'View subscription options' : undefined}
+        />
       ))}
 
       <Text variant="title" style={{ marginTop: spacing.lg, marginBottom: spacing.sm }}>For shops and merchants</Text>
@@ -160,7 +207,19 @@ export default function Pricing() {
         Each paid tier includes the tier below it, plus the additional tools listed. Paid tiers improve shop operations, not ranking in customer discovery.
       </Text>
       {MERCHANT_PLANS.map((plan) => (
-        <PlanCard key={plan.name} {...plan} />
+        <PlanCard
+          key={plan.name}
+          {...plan}
+          actionLoading={merchantCheckout.isPending}
+          actionLabel={plan.name === 'Starter' || plan.name === 'Growth' || plan.name === 'Flagship' ? 'Subscribe for this shop' : undefined}
+          onAction={plan.name === 'Starter'
+            ? () => merchantCheckout.mutate('merchant_starter')
+            : plan.name === 'Growth'
+              ? () => merchantCheckout.mutate('merchant_growth')
+              : plan.name === 'Flagship'
+                ? () => merchantCheckout.mutate('merchant_flagship')
+                : undefined}
+        />
       ))}
 
       <Text variant="caption" faint style={{ marginTop: spacing.md, textAlign: 'center' }}>

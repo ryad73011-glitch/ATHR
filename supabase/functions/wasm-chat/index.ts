@@ -232,6 +232,7 @@ Deno.serve(async (req: Request) => {
 
     const response = await fetch(OPENROUTER_URL, {
       method: 'POST',
+      signal: AbortSignal.timeout(20_000),
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${openRouterKey}`,

@@ -184,7 +184,7 @@ Deno.serve(async (req: Request) => {
       audience === 'women'
         ? 'For product recommendations, only use supplied catalogue entries classified as women or unisex with classification_status classified. If none fit, say no verified matching products are available and still give useful styling advice.'
         : 'Recommend ATHR products only when relevant and only from the supplied catalogue.',
-      'The product catalogue does not provide a verified target-audience field. Do not claim a product is women-specific unless its supplied title/category clearly supports that; if uncertain, give styling advice without attaching a misleading product recommendation.',
+      'The catalogue includes target_audience and classification_status. Treat audience as verified only when classification_status is classified and target_audience is women, men, or unisex. For women-only mode, recommend only the supplied pre-filtered women/unisex classified entries. For all-styles mode, do not describe an unknown or review-pending product as audience-verified; if uncertain, give styling advice without attaching a misleading product recommendation.',
       'Never invent product IDs, prices, stock status or availability.',
       'Never claim to have analysed a photo; this endpoint does not receive image content.',
       'Use the conversation history to understand follow-up messages.',

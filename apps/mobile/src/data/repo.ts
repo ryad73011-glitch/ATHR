@@ -159,6 +159,11 @@ status: 'not_configured' | 'url';
 url?: string;
 message: string;
 }>;
+requestMerchantCheckout(plan: MerchantSubscriptionPlan, merchantId: string): Promise<{
+status: 'not_configured' | 'url';
+url?: string;
+message: string;
+}>;
 
 // --- studio (AI) ----------------------------------------------------------
 runStudio(req: StudioRequest): Promise<StudioResult>;

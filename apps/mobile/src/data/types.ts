@@ -265,6 +265,7 @@ export interface EditorialStory {
 }
 
 export type SubscriptionPlan = 'free' | 'premium_monthly' | 'premium_annual';
+export type MerchantSubscriptionPlan = 'merchant_starter' | 'merchant_growth' | 'merchant_flagship';
 
 export interface Subscription {
   user_id: ID;

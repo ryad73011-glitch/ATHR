@@ -47,6 +47,21 @@ export default function MerchantDashboard() {
   const [editPrice, setEditPrice] = useState('');
   const [editStock, setEditStock] = useState('');
 
+  const analyseSelectedImage = async (image: { uri: string; base64: string; mimeType: string }) => {
+    setAnalyzing(true);
+    setClassification(null);
+    try {
+      const resultClassification = await source.classifyProductImage(image.base64, image.mimeType);
+      setClassification(resultClassification);
+      toast.show(resultClassification.review_required ? 'Image analysed; audience needs review.' : 'Image analysed and classified.');
+    } catch (error) {
+      // Keep the selected photo so the user can retry without choosing it again.
+      toast.show(error instanceof Error ? error.message : 'Could not analyse the product image.');
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+
   const chooseAndAnalyseImage = async () => {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
@@ -63,18 +78,12 @@ export default function MerchantDashboard() {
         throw new Error('Choose a JPEG, PNG, or WebP image.');
       }
       if (asset.base64.length > 5_500_000) throw new Error('Image is too large. Choose a smaller photo.');
-      setAnalyzing(true);
-      setSelectedImage({ uri: asset.uri, base64: asset.base64, mimeType });
+      const image = { uri: asset.uri, base64: asset.base64, mimeType };
+      setSelectedImage(image);
       setClassification(null);
-      const resultClassification = await source.classifyProductImage(asset.base64, mimeType);
-      setClassification(resultClassification);
-      toast.show(resultClassification.review_required ? 'Image analysed; audience needs review.' : 'Image analysed and classified.');
+      await analyseSelectedImage(image);
     } catch (error) {
-      setSelectedImage(null);
-      setClassification(null);
-      toast.show(error instanceof Error ? error.message : 'Could not analyse the product image.');
-    } finally {
-      setAnalyzing(false);
+      toast.show(error instanceof Error ? error.message : 'Could not read the product image.');
     }
   };
 
@@ -106,11 +115,15 @@ export default function MerchantDashboard() {
   const add = useMutation({
     mutationFn: async () => {
       if (!selectedImage || !classification) throw new Error('Select and analyse a product image first.');
+      const cleanTitle = title.trim();
+      const parsedPrice = Number(price);
+      if (!cleanTitle || cleanTitle.length > 120) throw new Error('Product title must be between 1 and 120 characters.');
+      if (!Number.isSafeInteger(parsedPrice) || parsedPrice <= 0) throw new Error('Enter a positive whole-number price in DZD.');
       const imageUrl = await source.uploadProductImage(selectedImage.base64, selectedImage.mimeType);
       return source.upsertProduct(
         {
-          title,
-          price: Number(price) || 0,
+          title: cleanTitle,
+          price: parsedPrice,
           category: classification.category,
           universe: classification.universe,
           currency: 'DZD',
@@ -240,6 +253,9 @@ export default function MerchantDashboard() {
           <Input label="Price (DZD)" value={price} onChangeText={setPrice} keyboardType="number-pad" />
           <Button label={analyzing ? 'Analysing image…' : selectedImage ? 'Choose another product photo' : 'Choose product photo'} full loading={analyzing} disabled={analyzing || add.isPending} onPress={chooseAndAnalyseImage} />
           {selectedImage ? <Image source={{ uri: selectedImage.uri }} style={{ width: '100%', height: 180, borderRadius: radius.md, marginTop: spacing.sm }} resizeMode="contain" /> : null}
+          {selectedImage && !classification && !analyzing ? (
+            <Button label="Retry image analysis" full variant="outline" disabled={add.isPending} onPress={() => analyseSelectedImage(selectedImage)} />
+          ) : null}
           {classification ? (
             <View style={{ marginTop: spacing.md, marginBottom: spacing.md, gap: spacing.xs }}>
               <Text variant="body" accent>{classification.category} · {classification.target_audience === 'women' ? 'Women' : classification.target_audience === 'men' ? 'Men' : classification.target_audience === 'unisex' ? 'Unisex' : 'Audience unclear'}</Text>
@@ -248,7 +264,7 @@ export default function MerchantDashboard() {
               {classification.review_required ? <Text variant="caption" accent>Needs review: the app will keep the audience as unknown rather than guess.</Text> : null}
             </View>
           ) : null}
-          <Button label={t('common.save')} full loading={add.isPending} disabled={!title.trim() || !Number(price) || !selectedImage || !classification || analyzing} onPress={() => add.mutate()} />
+          <Button label={t('common.save')} full loading={add.isPending} disabled={!title.trim() || title.trim().length > 120 || !Number.isSafeInteger(Number(price)) || Number(price) <= 0 || !selectedImage || !classification || analyzing} onPress={() => add.mutate()} />
         </Card>
       ) : null}
 

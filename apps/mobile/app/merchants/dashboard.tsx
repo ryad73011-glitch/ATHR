@@ -287,6 +287,21 @@ export default function MerchantDashboard() {
       <Text variant="title" style={{ marginBottom: spacing.sm }}>
         {t('merchants.products')} ({products.data?.total ?? 0})
       </Text>
+      {products.isError ? (
+        <Card style={{ padding: spacing.lg, marginBottom: spacing.md, gap: spacing.sm }}>
+          <Text variant="body">Could not load your products.</Text>
+          <Text variant="caption" muted>{products.error instanceof Error ? products.error.message : 'Check your connection and try again.'}</Text>
+          <Button label="Retry" full variant="outline" loading={products.isFetching} onPress={() => products.refetch()} />
+        </Card>
+      ) : null}
+      {products.isLoading ? <Skeleton width="100%" height={100} style={{ marginBottom: spacing.md }} /> : null}
+      {!products.isLoading && !products.isError && (products.data?.items.length ?? 0) === 0 ? (
+        <Card style={{ padding: spacing.lg, marginBottom: spacing.md, gap: spacing.sm }}>
+          <Text variant="title">Your catalogue is empty</Text>
+          <Text variant="body" muted>Add your first product with a clear photo, correct price, and stock quantity.</Text>
+          <Button label={t('merchants.addProduct')} full onPress={() => setAdding(true)} />
+        </Card>
+      ) : null}
       {(products.data?.items ?? []).map((p) => (
         <View key={p.id} style={{ marginBottom: spacing.md }}>
           <ProductRow product={p} />

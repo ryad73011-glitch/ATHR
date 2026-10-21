@@ -334,7 +334,7 @@ async updatePassword(password) {
         .maybeSingle();
 
       if (error) throw new Error(error.message);
-      return data;
+      return data ? ({ ...data, sponsored: false } as Product) : null;
     },
 
     async listLooks(filter) {

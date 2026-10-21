@@ -12,7 +12,7 @@ import { useSession } from '../../src/store/session';
 import { spacing } from '../../src/theme/tokens';
 import { useTheme } from '../../src/theme/ThemeProvider';
 
-const BENEFITS = ['Unlimited Style Studio generations', 'Advanced colour & fit analysis', 'Priority face-off placement', 'Offline wardrobe sync'];
+const BENEFITS = ['Unlimited Style Studio generations', 'Advanced colour & fit analysis', 'Priority access to new styling tools', 'Offline wardrobe sync'];
 
 export default function Subscription() {
   const source = useDataSource();

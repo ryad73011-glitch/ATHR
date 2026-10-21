@@ -287,8 +287,11 @@ export default function MerchantDashboard() {
       </View>
       <View style={{ flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.lg }}>
         <Stat label={t('merchants.commission')} value={formatMoney(stats.data?.est_commission ?? 0)} />
-        <Stat label="Orders" value={String(stats.data?.orders ?? 0)} />
+        <Stat label={t('merchants.orders')} value={String(stats.data?.orders ?? 0)} />
       </View>
+      <Text variant="caption" muted style={{ marginBottom: spacing.md }}>
+        {t('merchants.analyticsDisclaimer')}
+      </Text>
 
       <Text variant="caption" muted style={{ marginBottom: spacing.sm }}>
         {t('merchants.clicks')} · 7d

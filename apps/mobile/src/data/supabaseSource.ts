@@ -319,7 +319,7 @@ async updatePassword(password) {
       if (error) throw new Error(error.message);
 
       return {
-        items: (data ?? []) as Product[],
+        items: ((data ?? []) as Product[]).map((product) => ({ ...product, sponsored: false })),
         total: count ?? 0,
         has_more:
           offset + (data?.length ?? 0) < (count ?? 0),
@@ -334,7 +334,7 @@ async updatePassword(password) {
         .maybeSingle();
 
       if (error) throw new Error(error.message);
-      return data;
+      return data ? ({ ...data, sponsored: false } as Product) : null;
     },
 
     async listLooks(filter) {

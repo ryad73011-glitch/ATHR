@@ -1,0 +1,171 @@
+import { useRouter } from 'expo-router';
+import React from 'react';
+import { View } from 'react-native';
+
+import { Badge, Card, Header, Screen, Text } from '../src/components/ui';
+import { spacing } from '../src/theme/tokens';
+import { useTheme } from '../src/theme/ThemeProvider';
+
+const AI_PLANS = [
+  {
+    name: 'AI Free',
+    price: '0 DZD',
+    period: 'Always free',
+    features: [
+      'Basic local outfit suggestions',
+      'Limited daily cloud AI requests when enabled',
+      'Basic digital wardrobe',
+      'Save favourite looks',
+      'No advertisements',
+    ],
+  },
+  {
+    name: 'ATHR Premium',
+    price: '900 DZD',
+    period: 'per month',
+    accent: 'Best for individuals',
+    features: [
+      'Higher daily AI stylist allowance',
+      'Personalised outfit recommendations for occasions and budget',
+      'AI wardrobe assistant and outfit planning',
+      'Wardrobe cost-per-wear and outfit history tools',
+      'More saved outfits, collections and style profiles',
+      'Priority access to configured cloud AI models',
+      'Early access to new personal styling tools',
+      'No advertisements',
+    ],
+  },
+  {
+    name: 'ATHR Premium Annual',
+    price: '9,000 DZD',
+    period: 'per year',
+    features: [
+      'All ATHR Premium benefits',
+      'Two months cheaper than monthly billing at the proposed price',
+      'No advertisements',
+    ],
+  },
+];
+
+const MERCHANT_PLANS = [
+  {
+    name: 'Free',
+    price: '0 DZD',
+    period: 'Always free',
+    features: [
+      'Basic public shop profile',
+      'Small product catalogue allowance',
+      'Manual product and stock updates',
+      'Basic shop contact and catalogue link',
+    ],
+  },
+  {
+    name: 'Starter',
+    price: '1,500 DZD',
+    period: 'per month',
+    features: [
+      'Everything in Free',
+      'Larger product catalogue allowance',
+      'Product variants and stock management',
+      'Basic product and shop performance analytics',
+      'Shop logo, cover and richer profile sections',
+      'No advertisements or paid ranking',
+    ],
+  },
+  {
+    name: 'Growth',
+    price: '4,500 DZD',
+    period: 'per month',
+    accent: 'For growing shops',
+    features: [
+      'Everything in Starter',
+      'Higher catalogue and image upload limits',
+      'Advanced sales-intent, clicks and product analytics',
+      'Bulk product import and catalogue editing',
+      'AI-assisted product descriptions and image categorisation when configured',
+      'Promotions and discount-code management',
+      'Exportable performance reports',
+      'No advertisements or paid ranking',
+    ],
+  },
+  {
+    name: 'Flagship',
+    price: '10,000 DZD',
+    period: 'per month',
+    features: [
+      'Everything in Growth',
+      'Highest catalogue and team-seat allowance',
+      'Advanced trend and product-performance reports',
+      'Priority merchant support',
+      'Early access to merchant tools and integrations',
+      'Enhanced shop customisation',
+      'No advertisements or paid ranking',
+    ],
+  },
+];
+
+function PlanCard({
+  name,
+  price,
+  period,
+  features,
+  accent,
+}: {
+  name: string;
+  price: string;
+  period?: string;
+  features: string[];
+  accent?: string;
+}) {
+  return (
+    <Card style={{ padding: spacing.lg, marginBottom: spacing.md }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm }}>
+        <Text variant="title">{name}</Text>
+        {accent ? <Badge label={accent} color="#8D78D8" /> : null}
+      </View>
+      <Text variant="title" style={{ marginTop: spacing.sm }}>{price}</Text>
+      {period ? <Text variant="caption" faint>{period}</Text> : null}
+      <View style={{ height: spacing.sm }} />
+      {features.map((feature) => (
+        <Text key={feature} variant="small" muted style={{ marginBottom: spacing.xs }}>• {feature}</Text>
+      ))}
+    </Card>
+  );
+}
+
+export default function Pricing() {
+  const router = useRouter();
+  const { tokens } = useTheme();
+
+  return (
+    <Screen scroll insetBottom>
+      <Header title="Plans & pricing" onBack={() => router.back()} />
+      <Card style={{ padding: spacing.lg, marginBottom: spacing.lg, borderColor: tokens.accent }}>
+        <Text variant="title">Pay for useful tools, not visibility</Text>
+        <Text variant="body" muted style={{ marginTop: spacing.xs }}>
+          Paid plans unlock extra AI, shop-management and analytics capabilities. Paying never buys a sponsored placement or changes organic product ranking. ATHR has no banner ads, pop-ups or paid product placements.
+        </Text>
+      </Card>
+
+      <Text variant="title" style={{ marginBottom: spacing.sm }}>For people and AI styling</Text>
+      <Text variant="caption" faint style={{ marginBottom: spacing.md }}>
+        Premium raises feature allowances; exact cloud-AI limits will be enforced server-side and shown before purchase.
+      </Text>
+      {AI_PLANS.map((plan) => (
+        <PlanCard key={plan.name} {...plan} />
+      ))}
+
+      <Text variant="title" style={{ marginTop: spacing.lg, marginBottom: spacing.sm }}>For shops and merchants</Text>
+      <Text variant="caption" faint style={{ marginBottom: spacing.md }}>
+        Each paid tier includes the tier below it, plus the additional tools listed. Paid tiers improve shop operations, not ranking in customer discovery.
+      </Text>
+      {MERCHANT_PLANS.map((plan) => (
+        <PlanCard key={plan.name} {...plan} />
+      ))}
+
+      <Text variant="caption" faint style={{ marginTop: spacing.md, textAlign: 'center' }}>
+        Prices and benefits are proposed launch terms. Checkout, tier entitlements and usage limits are not live until provider configuration, server-side enforcement and staging tests are complete. Features that depend on cloud AI or integrations require those services to be configured.
+      </Text>
+    </Screen>
+  );
+}

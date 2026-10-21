@@ -120,7 +120,8 @@ function persist(): void {
 }
 
 function allProducts(): Product[] {
-  return [...demoProducts, ...state.customProducts];
+  // ATHR is ad-free: sponsored placements are never surfaced in any mode.
+  return [...demoProducts, ...state.customProducts].map((product) => ({ ...product, sponsored: false }));
 }
 function allLooks(): Look[] {
   return [...demoLooks, ...state.customLooks];
@@ -155,7 +156,7 @@ function sortProducts(list: Product[], sort: ProductFilter['sort']): Product[] {
     case 'rating':
       return copy.sort((a, b) => b.rating - a.rating);
     default:
-      return copy.sort((a, b) => Number(b.sponsored) - Number(a.sponsored) || b.rating - a.rating);
+      return copy.sort((a, b) => b.rating - a.rating);
   }
 }
 

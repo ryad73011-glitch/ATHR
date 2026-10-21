@@ -18,6 +18,7 @@ create policy monetization_plans_public_read
   on public.monetization_plans for select to anon, authenticated
   using (active = true);
 
+grant select on public.monetization_plans to anon, authenticated;
 revoke insert, update, delete on public.monetization_plans from anon, authenticated;
 
 insert into public.monetization_plans

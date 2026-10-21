@@ -97,6 +97,7 @@ patch: { title?: string; price?: number; in_stock?: boolean; stock_count?: numbe
 deleteMerchantProduct(productId: string, merchantId: string): Promise<void>;
 classifyProductImage(imageBase64: string, mimeType: string): Promise<ProductImageClassification>;
 uploadProductImage(imageBase64: string, mimeType: string): Promise<string>;
+deleteProductImage(imageUrl: string): Promise<void>;
 merchantStats(merchantId: string): Promise<{
 impressions: number;
 clicks: number;

@@ -160,11 +160,14 @@ export default function Pricing() {
         return { status: 'not_configured' as const, message: 'Sign in with the account that owns the shop before subscribing.' };
       }
       const merchants = await source.listMerchants();
-      const merchant = merchants.find((item) => item.owner_id === session.user_id);
-      if (!merchant) {
+      const ownedMerchants = merchants.filter((item) => item.owner_id === session.user_id);
+      if (ownedMerchants.length === 0) {
         return { status: 'not_configured' as const, message: 'No shop is linked to this account. Create or link a merchant profile first.' };
       }
-      return source.requestMerchantCheckout(plan, merchant.id);
+      if (ownedMerchants.length > 1) {
+        return { status: 'not_configured' as const, message: 'This account owns multiple shops. Choose the shop to upgrade from its merchant dashboard so the subscription is applied to the correct shop.' };
+      }
+      return source.requestMerchantCheckout(plan, ownedMerchants[0].id);
     },
     onSuccess: async (result) => {
       toast.show(result.message);

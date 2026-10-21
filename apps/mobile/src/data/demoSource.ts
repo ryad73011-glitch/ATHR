@@ -427,6 +427,10 @@ export const demoSource: DataSource = {
     throw new Error('Product image uploads need live Supabase mode. Configure the Supabase connection to use this feature.');
   },
 
+  async deleteProductImage(_imageUrl: string) {
+    // Demo mode never uploads remote files.
+  },
+
   async upsertProduct(input, merchantId) {
     await load();
     const merchant = state.merchants.find((m) => m.id === merchantId);

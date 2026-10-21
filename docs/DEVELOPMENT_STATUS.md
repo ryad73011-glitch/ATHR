@@ -19,14 +19,15 @@ Production/main: unchanged; do not merge PR #9 without explicit approval.
 - `9a78185b`: retry image classification without re-selecting the image, plus positive whole-number DZD price and product-title validation.
 - `1232228f`, `af596fec`, `36f202b6`, `6dcf18a1`: added product-image cleanup to the DataSource contract and live source; if product insert fails after upload, the dashboard attempts to remove the newly uploaded object while preserving the original save error.
 - `1903fb2d`: added the merchant review user foreign-key index.
+- `0bb33dcd`, `e5e5c328`: added English, Arabic, and French disclosure text explaining that impressions, CTR, commission, and order metrics are estimates until real event/order tracking is implemented.
 - This status document records the current state for future sessions.
 
 ## Verification
-- GitHub Actions run https://github.com/ryad73011-glitch/ATHR/actions/runs/39528007329 is running for commit `1903fb2d03999ea8a87b865c662a318845080f5c` at last check. Earlier runs passed install, TypeScript typecheck, unit tests, Expo Android export, and Android prebuild, but the Release APK step had not completed at the last observed poll. No successful APK build or artifact upload is yet confirmed for the latest branch head.
+- GitHub Actions run https://github.com/ryad73011-glitch/ATHR/actions/runs/39528102451 is running for commit `e5e5c328951c1eb32559946b22822263e6d3aad9` at last check. Earlier runs passed install, TypeScript typecheck, unit tests, Expo Android export, and Android prebuild, but the Release APK step had not completed at the last observed poll. No successful APK build or artifact upload is yet confirmed for the latest branch head.
 - Live Supabase read-only checks confirmed merchant review RLS policies and rating/product-count triggers. The review identity guard trigger was applied and verified on the live project.
 
 ## Remaining priorities
-1. Confirm GitHub Actions and APK artifact for latest branch head `1903fb2d`.
+1. Confirm GitHub Actions and APK artifact for latest branch head `e5e5c328`.
 2. Verify product image upload/classification/save and cleanup flow end to end with a real authenticated session.
 3. Inspect WASM chat/image logs and validate OpenRouter calls and JWT enforcement.
 4. Review Supabase Security Advisor findings involving SECURITY DEFINER RPC functions; determine intended caller roles before changing grants.

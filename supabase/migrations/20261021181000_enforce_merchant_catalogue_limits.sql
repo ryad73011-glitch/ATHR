@@ -11,6 +11,9 @@ declare
   v_status text := 'inactive';
   v_plan text := 'free';
 begin
+  -- Serialize product creation per merchant so concurrent requests cannot race past the cap.
+  perform pg_advisory_xact_lock(hashtext(new.merchant_id::text));
+
   select ms.plan, ms.status
     into v_plan, v_status
   from public.merchant_subscriptions ms

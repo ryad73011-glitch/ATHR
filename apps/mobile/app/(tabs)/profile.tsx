@@ -86,6 +86,7 @@ export default function Profile() {
           <Row icon="notifications-outline" label={t('profile.notifications')} onPress={() => router.push('/profile/notifications')} />
           <Row icon="color-palette-outline" label={t('profile.preferences')} onPress={() => router.push('/profile/settings')} />
           <Row icon="card-outline" label={t('profile.subscription')} onPress={() => router.push('/profile/subscription')} />
+          <Row icon="pricetag-outline" label="Plans & pricing · Ad-free" onPress={() => router.push('/pricing')} />
           {profile?.role === 'admin' || profile?.role === 'moderator' || !isLive ? (
             <Row icon="shield-checkmark-outline" label={t('profile.admin')} onPress={() => router.push('/admin')} />
           ) : null}

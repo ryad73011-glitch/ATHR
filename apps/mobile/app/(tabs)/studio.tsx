@@ -324,9 +324,10 @@ React.useEffect(() => {
         return;
       }
 
-      const mimeType = asset.mimeType === 'image/png' || asset.mimeType === 'image/webp'
-        ? asset.mimeType
-        : 'image/jpeg';
+      const mimeType: AttachedImage['mimeType'] =
+        asset.mimeType === 'image/png' || asset.mimeType === 'image/webp'
+          ? asset.mimeType
+          : 'image/jpeg';
       setImages((current) => [...current, { uri: asset.uri, base64: asset.base64!, mimeType }].slice(-4));
     } catch {
       toast.show(t('common.error'));

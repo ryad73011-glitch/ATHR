@@ -450,6 +450,26 @@ async updatePassword(password) {
       return sb.storage.from('product-images').getPublicUrl(path).data.publicUrl;
     },
 
+    async deleteProductImage(imageUrl: string): Promise<void> {
+      const session = await authed();
+      if (!session) throw new Error('Sign in before deleting an uploaded product image.');
+
+      const marker = '/storage/v1/object/public/product-images/';
+      const url = new URL(imageUrl);
+      if (url.origin !== new URL(env.url).origin || !url.pathname.includes(marker)) {
+        throw new Error('This image does not belong to the ATHR product image bucket.');
+      }
+
+      const encodedPath = url.pathname.slice(url.pathname.indexOf(marker) + marker.length);
+      const path = decodeURIComponent(encodedPath);
+      if (!path.startsWith(`${session.user.id}/`) || path.includes('..')) {
+        throw new Error('You do not have permission to delete this product image.');
+      }
+
+      const { error } = await sb.storage.from('product-images').remove([path]);
+      if (error) throw new Error(error.message);
+    },
+
     async upsertProduct(input, merchantId) {
       const session = await authed();
       if (!session) throw new Error('Sign in before adding products.');

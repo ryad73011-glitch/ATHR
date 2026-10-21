@@ -1,41 +1,75 @@
-# ATHR · Monetization and ad-free policy
+# ATHR · Monetization, paid benefits and ad-free policy
 
-ATHR uses transparent subscriptions and affiliate referrals, not advertising placements. Payment is not considered live until provider credentials, checkout, webhook reconciliation, and staging tests are complete.
+ATHR monetizes through transparent subscriptions and, if later configured, disclosed affiliate referrals. There are no banner ads, pop-ups, or paid sponsored product placements. Paying for a subscription does not buy organic ranking.
 
 ## Proposed launch pricing (DZD)
 
 | Audience | Plan | Price | Billing |
 | --- | --- | ---: | --- |
-| AI / personal | Free | 0 | Ongoing |
-| AI / personal | ATHR Premium | 900 DZD | Monthly |
-| AI / personal | ATHR Premium Annual | 9,000 DZD | Annual |
-| Shops | Free | 0 | Ongoing |
-| Shops | Starter | 1,500 DZD | Monthly |
-| Shops | Growth | 4,500 DZD | Monthly |
-| Shops | Flagship | 10,000 DZD | Monthly |
+| Personal / AI | Free | 0 | Ongoing |
+| Personal / AI | ATHR Premium | 900 DZD | Monthly |
+| Personal / AI | ATHR Premium Annual | 9,000 DZD | Annual |
+| Merchant | Free | 0 | Ongoing |
+| Merchant | Starter | 1,500 DZD | Monthly |
+| Merchant | Growth | 4,500 DZD | Monthly |
+| Merchant | Flagship | 10,000 DZD | Monthly |
 
-These are initial proposed prices for product validation, not an activated billing offer. Review unit economics, provider costs, taxes, and local payment availability before enabling collection.
+These are proposed launch prices, not an activated billing offer. Validate provider costs, willingness to pay, taxes and local payment availability before collecting money.
 
-## AI plans
+## Personal / AI tiers
 
-- Free: local rule-based stylist and basic wardrobe features.
-- Premium: access to cloud AI features only when the provider key and backend are configured; existing checkout is not configured by default.
-- Never expose AI provider secrets to the mobile client. Before charging per usage, enforce quotas and log usage server-side; UI plan labels alone do not enforce entitlements.
+### Free
+- Basic local outfit recommendations and wardrobe tools.
+- A limited cloud AI allowance only if the cloud provider is configured.
+- Saved favourite looks and an ad-free experience.
 
-## Shop plans
+### ATHR Premium — 900 DZD/month
+- Higher daily AI stylist allowance.
+- Personalised outfit recommendations by occasion, style and budget.
+- AI wardrobe assistant and outfit planning.
+- Wardrobe cost-per-wear and outfit history tools.
+- Larger saved-outfit, collection and style-profile allowances.
+- Priority access to configured cloud AI models and early access to personal styling features.
+- Ad-free experience.
 
-Merchant plan identifiers remain `free`, `starter`, `growth`, and `flagship`. The pricing screen displays proposed fees. Merchant checkout, renewals, cancellations, invoice handling, and server-side entitlement enforcement still require implementation and payment-provider credentials.
+### ATHR Premium Annual — 9,000 DZD/year
+- All Premium benefits.
+- Proposed annual saving equivalent to two months at the monthly list price.
 
-## Permanent ad-free product policy
+## Merchant tiers
 
-- No banner ads, pop-ups, or paid sponsored product placements.
-- Catalogue results rank by relevance, rating, or requested sort—not advertising spend.
+### Free
+- Basic public shop profile, small catalogue allowance, manual product/stock updates and contact/catalogue link.
+
+### Starter — 1,500 DZD/month
+- Free benefits, larger catalogue, product variants and stock management, basic product/shop analytics, richer shop profile and cover/logo customisation.
+
+### Growth — 4,500 DZD/month
+- Starter benefits, higher catalogue/image limits, clicks and product-performance analytics, bulk catalogue import/editing, AI-assisted product descriptions and image categorisation when configured, promotions/discount codes and exportable reports.
+
+### Flagship — 10,000 DZD/month
+- Growth benefits, highest catalogue/team-seat allowance, advanced trend reports, priority merchant support, enhanced shop customisation and early access to merchant integrations.
+
+The feature list is the intended tier design. Do not advertise a feature as available until it is implemented and tested. The pricing screen currently communicates these planned benefits; it does not by itself deliver or enforce them.
+
+## Required implementation before charging
+
+1. Add a server-verified subscription/entitlement record for each account and merchant. Never trust a client-supplied plan name.
+2. Validate provider webhooks before activating, renewing, cancelling or expiring a paid subscription.
+3. Enforce AI request quotas, model access, catalogue limits, analytics access, team seats and premium tools in Edge Functions/database policies—not only in UI.
+4. Add usage tracking, rate limits, failed-payment handling, cancellation and expiry behaviour.
+5. Test all plan transitions in staging before enabling real checkout.
+
+## Permanent ad-free and fair-ranking policy
+
+- No banner ads, pop-ups or paid sponsored product placements.
+- Product discovery ranks by relevance, rating, price or the user's chosen sort, never subscription spend.
 - The mobile data layer forces the legacy `sponsored` flag off in demo and live product responses.
-- The migration clears existing sponsored flags and adds a database constraint that rejects future sponsored products.
-- Affiliate links, when configured, are disclosed and must not affect product ranking.
+- The migration clears existing sponsored flags and adds a database constraint rejecting future sponsored products.
+- Affiliate links, if configured, must be disclosed and must not change organic ranking.
 
 ## Existing payment architecture
 
 - ATHR Premium uses the existing subscriptions table and `create-checkout` function.
 - Stripe configuration reads `STRIPE_SECRET_KEY`, `STRIPE_PRICE_MONTHLY`, and `STRIPE_PRICE_ANNUAL`.
-- Do not mark a subscription active from a client callback alone; verify provider webhooks before granting paid entitlements.
+- Provider secrets remain server-side. Do not grant paid entitlements based on a client callback alone.

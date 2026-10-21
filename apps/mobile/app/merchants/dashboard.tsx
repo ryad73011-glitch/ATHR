@@ -189,7 +189,22 @@ export default function MerchantDashboard() {
   });
 
   const deleteProduct = useMutation({
-    mutationFn: (productId: string) => source.deleteMerchantProduct(productId, activeMerchantId),
+    mutationFn: async (productId: string) => {
+      // Read image references before deleting the row, then best-effort cleanup after
+      // the database confirms deletion. A Storage cleanup failure must not undo or
+      // misreport a successful product deletion.
+      const product = await source.getProduct(productId);
+      await source.deleteMerchantProduct(productId, activeMerchantId);
+      if (product?.merchant_id === activeMerchantId) {
+        for (const imageUrl of product.images ?? []) {
+          try {
+            await source.deleteProductImage(imageUrl);
+          } catch {
+            // Older/external images may not be owned by this user or bucket.
+          }
+        }
+      }
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['mproducts', activeMerchantId] });
       qc.invalidateQueries({ queryKey: ['mstats', activeMerchantId] });

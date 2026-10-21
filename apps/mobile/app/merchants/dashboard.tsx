@@ -120,33 +120,43 @@ export default function MerchantDashboard() {
       if (!cleanTitle || cleanTitle.length > 120) throw new Error('Product title must be between 1 and 120 characters.');
       if (!Number.isSafeInteger(parsedPrice) || parsedPrice <= 0) throw new Error('Enter a positive whole-number price in DZD.');
       const imageUrl = await source.uploadProductImage(selectedImage.base64, selectedImage.mimeType);
-      return source.upsertProduct(
-        {
-          title: cleanTitle,
-          price: parsedPrice,
-          category: classification.category,
-          universe: classification.universe,
-          currency: 'DZD',
-          colors: classification.colors,
-          images: [imageUrl],
-          target_audience: classification.target_audience,
-          classification_status: classification.classification_status,
-          classification_confidence: classification.confidence,
-          image_analysis: {
+      try {
+        return await source.upsertProduct(
+          {
+            title: cleanTitle,
+            price: parsedPrice,
             category: classification.category,
-            target_audience: classification.target_audience,
-            confidence: classification.confidence,
-            colors: classification.colors,
             universe: classification.universe,
+            currency: 'DZD',
+            colors: classification.colors,
+            images: [imageUrl],
+            target_audience: classification.target_audience,
+            classification_status: classification.classification_status,
+            classification_confidence: classification.confidence,
+            image_analysis: {
+              category: classification.category,
+              target_audience: classification.target_audience,
+              confidence: classification.confidence,
+              colors: classification.colors,
+              universe: classification.universe,
+              description: classification.description,
+              model: classification.model,
+            },
             description: classification.description,
-            model: classification.model,
+            in_stock: true,
+            stock_count: 5,
           },
-          description: classification.description,
-          in_stock: true,
-          stock_count: 5,
-        },
-        activeMerchantId,
-      );
+          activeMerchantId,
+        );
+      } catch (saveError) {
+        // Avoid leaving an orphaned Storage object when the product insert fails.
+        try {
+          await source.deleteProductImage(imageUrl);
+        } catch {
+          // Preserve the original save error; storage policies may block cleanup.
+        }
+        throw saveError;
+      }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['mproducts', activeMerchantId] });

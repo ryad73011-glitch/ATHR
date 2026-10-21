@@ -997,6 +997,7 @@ async updatePassword(password) {
             history: req.history,
             universe: req.universe,
             audience: req.audience ?? 'women',
+            images: req.images ?? [],
           },
         },
       );

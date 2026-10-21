@@ -21,6 +21,7 @@ Production/main: unchanged; do not merge PR #9 without explicit approval.
 - `1903fb2d`: added the merchant review user foreign-key index.
 - `0bb33dcd`, `e5e5c328`: added English, Arabic, and French disclosure text explaining that impressions, CTR, commission, and order metrics are estimates until real event/order tracking is implemented.
 - `29a30295`: CI now cancels obsolete builds on the same branch so rapid pushes don't consume runners with redundant APK builds.
+- `da016ed8`, `93d51bb6`: product creation now asks for stock quantity in EN/AR/FR, validates it, and sets availability from the entered quantity instead of inventing a default stock count of five.
 - This status document records the current state for future sessions.
 
 ## Verification
@@ -29,7 +30,7 @@ Production/main: unchanged; do not merge PR #9 without explicit approval.
 - Live Supabase read-only checks confirmed merchant review RLS policies and rating/product-count triggers. The review identity guard trigger was applied and verified on the live project.
 
 ## Remaining priorities
-1. Confirm GitHub Actions and APK artifact for latest branch head `29a30295`.
+1. Confirm GitHub Actions and APK artifact for latest branch head `93d51bb6`.
 2. Verify product image upload/classification/save and cleanup flow end to end with a real authenticated session.
 3. Inspect WASM chat/image logs and validate OpenRouter calls and JWT enforcement.
 4. Review Supabase Security Advisor findings involving SECURITY DEFINER RPC functions; determine intended caller roles before changing grants.

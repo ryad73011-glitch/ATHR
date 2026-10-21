@@ -112,12 +112,42 @@ Deno.serve(async (req: Request) => {
   let body: Record<string, unknown>;
 
   try {
-    const rawBody = await req.text();
+    // Read the body incrementally so a missing or dishonest Content-Length
+    // cannot force an unbounded allocation before the size check.
+    const reader = req.body?.getReader();
 
-    if (new TextEncoder().encode(rawBody).byteLength > MAX_REQUEST_BYTES) {
-      return json({ error: 'Request body too large' }, 413);
+    if (!reader) {
+      return json({ error: 'Invalid JSON body' }, 400);
     }
 
+    const chunks: Uint8Array[] = [];
+    let totalBytes = 0;
+
+    while (true) {
+      const { done, value } = await reader.read();
+
+      if (done) break;
+      if (!value) continue;
+
+      totalBytes += value.byteLength;
+
+      if (totalBytes > MAX_REQUEST_BYTES) {
+        await reader.cancel();
+        return json({ error: 'Request body too large' }, 413);
+      }
+
+      chunks.push(value);
+    }
+
+    const bodyBytes = new Uint8Array(totalBytes);
+    let offset = 0;
+
+    for (const chunk of chunks) {
+      bodyBytes.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+
+    const rawBody = new TextDecoder().decode(bodyBytes);
     const parsed: unknown = JSON.parse(rawBody);
 
     if (

@@ -98,17 +98,10 @@ Deno.serve(async (req: Request) => {
       event.type === 'customer.subscription.updated' ||
       event.type === 'customer.subscription.deleted') {
     const metadata = object.metadata as Record<string, unknown> | undefined;
-    const userId = metadata?.user_id;
+    const audience = metadata?.audience;
     const plan = metadata?.plan;
-    if (
-      typeof userId !== 'string' ||
-      typeof plan !== 'string' ||
-      !['premium_monthly', 'premium_annual'].includes(plan)
-    ) {
-      console.error('Subscription event missing required user/plan metadata');
-      return json({ received: true, ignored: 'missing_metadata' });
-    }
-
+    const userId = metadata?.user_id;
+    const merchantId = metadata?.merchant_id;
     const rawStatus = object.status;
     const status = event.type === 'customer.subscription.deleted'
       ? 'canceled'
@@ -121,6 +114,47 @@ Deno.serve(async (req: Request) => {
       ? new Date(object.current_period_end * 1000).toISOString()
       : null;
 
+    if (audience === 'merchant') {
+      if (
+        typeof merchantId !== 'string' ||
+        typeof userId !== 'string' ||
+        typeof plan !== 'string' ||
+        !['merchant_starter', 'merchant_growth', 'merchant_flagship'].includes(plan)
+      ) {
+        console.error('Merchant subscription event missing required metadata');
+        return json({ received: true, ignored: 'missing_metadata' });
+      }
+      const merchantPlan = plan.replace('merchant_', '');
+      // Verify the owner is unchanged before granting a paid shop tier.
+      const { data: merchant, error: merchantError } = await supabase
+        .from('merchants').select('id,owner_id').eq('id', merchantId).maybeSingle();
+      if (merchantError || !merchant || merchant.owner_id !== userId) {
+        console.error('Merchant subscription owner verification failed');
+        return json({ error: 'Merchant ownership verification failed' }, 403);
+      }
+      const { error } = await supabase.from('merchant_subscriptions').upsert({
+        merchant_id: merchantId,
+        plan: merchantPlan,
+        status,
+        provider: 'stripe',
+        current_period_end: periodEnd,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'merchant_id' });
+      if (error) {
+        console.error('Could not update merchant subscription state');
+        return json({ error: 'Merchant subscription update failed' }, 500);
+      }
+      return json({ received: true });
+    }
+
+    if (
+      typeof userId !== 'string' ||
+      typeof plan !== 'string' ||
+      !['premium_monthly', 'premium_annual'].includes(plan)
+    ) {
+      console.error('Subscription event missing required user/plan metadata');
+      return json({ received: true, ignored: 'missing_metadata' });
+    }
     const { error } = await supabase.from('subscriptions').upsert({
       user_id: userId,
       plan,
@@ -128,7 +162,6 @@ Deno.serve(async (req: Request) => {
       provider: 'stripe',
       current_period_end: periodEnd,
     }, { onConflict: 'user_id' });
-
     if (error) {
       console.error('Could not update subscription state from Stripe webhook');
       return json({ error: 'Subscription state update failed' }, 500);

@@ -39,6 +39,7 @@ export default function MerchantDashboard() {
   const [adding, setAdding] = useState(false);
   const [title, setTitle] = useState('');
   const [price, setPrice] = useState('');
+  const [stockCount, setStockCount] = useState('0');
   const [selectedImage, setSelectedImage] = useState<{ uri: string; base64: string; mimeType: string } | null>(null);
   const [classification, setClassification] = useState<ProductImageClassification | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
@@ -117,8 +118,10 @@ export default function MerchantDashboard() {
       if (!selectedImage || !classification) throw new Error('Select and analyse a product image first.');
       const cleanTitle = title.trim();
       const parsedPrice = Number(price);
+      const parsedStock = Number(stockCount);
       if (!cleanTitle || cleanTitle.length > 120) throw new Error('Product title must be between 1 and 120 characters.');
       if (!Number.isSafeInteger(parsedPrice) || parsedPrice <= 0) throw new Error('Enter a positive whole-number price in DZD.');
+      if (!Number.isSafeInteger(parsedStock) || parsedStock < 0) throw new Error('Enter a non-negative whole-number stock quantity.');
       const imageUrl = await source.uploadProductImage(selectedImage.base64, selectedImage.mimeType);
       try {
         return await source.upsertProduct(
@@ -143,8 +146,8 @@ export default function MerchantDashboard() {
               model: classification.model,
             },
             description: classification.description,
-            in_stock: true,
-            stock_count: 5,
+            in_stock: parsedStock > 0,
+            stock_count: parsedStock,
           },
           activeMerchantId,
         );
@@ -165,6 +168,7 @@ export default function MerchantDashboard() {
       setAdding(false);
       setTitle('');
       setPrice('');
+      setStockCount('0');
       setSelectedImage(null);
       setClassification(null);
     },
@@ -261,6 +265,7 @@ export default function MerchantDashboard() {
         <Card style={{ padding: spacing.lg, marginBottom: spacing.lg }}>
           <Input label="Title" value={title} onChangeText={setTitle} />
           <Input label="Price (DZD)" value={price} onChangeText={setPrice} keyboardType="number-pad" />
+          <Input label={t('merchants.stockQuantity')} value={stockCount} onChangeText={setStockCount} keyboardType="number-pad" />
           <Button label={analyzing ? 'Analysing image…' : selectedImage ? 'Choose another product photo' : 'Choose product photo'} full loading={analyzing} disabled={analyzing || add.isPending} onPress={chooseAndAnalyseImage} />
           {selectedImage ? <Image source={{ uri: selectedImage.uri }} style={{ width: '100%', height: 180, borderRadius: radius.md, marginTop: spacing.sm }} resizeMode="contain" /> : null}
           {selectedImage && !classification && !analyzing ? (
@@ -274,7 +279,7 @@ export default function MerchantDashboard() {
               {classification.review_required ? <Text variant="caption" accent>Needs review: the app will keep the audience as unknown rather than guess.</Text> : null}
             </View>
           ) : null}
-          <Button label={t('common.save')} full loading={add.isPending} disabled={!title.trim() || title.trim().length > 120 || !Number.isSafeInteger(Number(price)) || Number(price) <= 0 || !selectedImage || !classification || analyzing} onPress={() => add.mutate()} />
+          <Button label={t('common.save')} full loading={add.isPending} disabled={!title.trim() || title.trim().length > 120 || !Number.isSafeInteger(Number(price)) || Number(price) <= 0 || !Number.isSafeInteger(Number(stockCount)) || Number(stockCount) < 0 || !selectedImage || !classification || analyzing} onPress={() => add.mutate()} />
         </Card>
       ) : null}
 

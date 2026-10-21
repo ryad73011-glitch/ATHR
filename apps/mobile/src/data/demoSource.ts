@@ -365,19 +365,19 @@ export const demoSource: DataSource = {
     const session = state.session;
     if (!session) throw new Error('Sign in to rate this store.');
     if (!Number.isInteger(rating) || rating < 1 || rating > 5) throw new Error('Choose a rating from 1 to 5.');
-    if (state.merchantReviews.some((r) => r.merchant_id === merchantId && r.user_id === session.user_id)) throw new Error('You have already rated this store. Edit your existing rating instead.');
-    const review: MerchantReview = { id: uid('rev'), merchant_id: merchantId, user_id: session.user_id, rating, comment: comment.trim() || null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
-    state.merchantReviews.push(review);
     const merchant = state.merchants.find((m) => m.id === merchantId);
+    if (!merchant || !merchant.approved) throw new Error('Only approved stores can be rated.');
+    if (merchant.owner_id && merchant.owner_id === session.user_id) throw new Error('You cannot rate your own store.');
+    if (state.merchantReviews.some((r) => r.merchant_id === merchantId && r.user_id === session.user_id)) throw new Error('You have already rated this store. Edit your existing rating instead.');
+    const now = new Date().toISOString();
+    const review: MerchantReview = { id: uid('rev'), merchant_id: merchantId, user_id: session.user_id, rating, comment: comment.trim() || null, created_at: now, updated_at: now };
+    state.merchantReviews.push(review);
     const rows = state.merchantReviews.filter((r) => r.merchant_id === merchantId);
-    if (merchant) {
-      merchant.rating = Math.round(rows.reduce((sum, r) => sum + r.rating, 0) / rows.length * 100) / 100;
-      merchant.review_count = rows.length;
-    }
+    merchant.rating = Math.round(rows.reduce((sum, r) => sum + r.rating, 0) / rows.length * 100) / 100;
+    merchant.review_count = rows.length;
     persist();
     return review;
   },
-
   async updateMerchantReview(reviewId, rating, comment = '') {
     await load();
     const review = state.merchantReviews.find((r) => r.id === reviewId && r.user_id === state.session?.user_id);

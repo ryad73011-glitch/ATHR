@@ -22,20 +22,21 @@ Production/main: unchanged; do not merge PR #9 without explicit approval.
 - `0bb33dcd`, `e5e5c328`: added English, Arabic, and French disclosure text explaining that impressions, CTR, commission, and order metrics are estimates until real event/order tracking is implemented.
 - `29a30295`: CI now cancels obsolete builds on the same branch so rapid pushes don't consume runners with redundant APK builds.
 - `da016ed8`, `93d51bb6`: product creation now asks for stock quantity in EN/AR/FR, validates it, and sets availability from the entered quantity instead of inventing a default stock count of five.
+- `fa9c6712`: after a product row is successfully deleted, the merchant dashboard best-effort removes its referenced product images. Storage cleanup failures do not misreport the database deletion; the live source only permits removal of images in the authenticated user's own `product-images` folder.
 - This status document records the current state for future sessions.
 
 ## Verification
-- CI workflow now uses per-branch concurrency cancellation. The newest commit at last update is `29a30295094b96903639d9ec581f3747b02389fc`; confirm its Actions run before claiming build success.
-- Earlier runs passed install, TypeScript typecheck, unit tests, Expo Android export, and Android prebuild, but the Release APK step had not completed at the last observed poll. No successful APK build or artifact upload is yet confirmed for the latest branch head.
-- Live Supabase read-only checks confirmed merchant review RLS policies and rating/product-count triggers. The review identity guard trigger was applied and verified on the live project.
+- GitHub Actions run `39528242758` for commit `4e4128256e03bde7422a04da067b896718466166` completed successfully: dependency install, TypeScript typecheck, unit tests, Expo Android export, Android prebuild, Release APK build, and artifact upload all passed.
+- APK artifact `ATHR-standalone-APK` was created on 2026-10-21 and expires 2026-10-28. Run: https://github.com/ryad73011-glitch/ATHR/actions/runs/39528242758
+- The product-image cleanup-after-delete change (`fa9c6712`) was committed after that successful run, so it still needs a fresh CI run before its verification can be claimed.
+- Live Supabase checks confirmed the merchant review identity guard trigger and `merchant_reviews.user_id` index on project `deoeixdwjexmtjsxsoku` via Primary.
 
 ## Remaining priorities
-1. Confirm GitHub Actions and APK artifact for latest branch head `93d51bb6`.
-2. Verify product image upload/classification/save and cleanup flow end to end with a real authenticated session.
+1. Verify CI and APK build for the latest code commit `fa9c6712`.
+2. Verify product image upload/classification/save and cleanup flows end to end with a real authenticated merchant session; no live authenticated test has been performed in this session.
 3. Inspect WASM chat/image logs and validate OpenRouter calls and JWT enforcement.
 4. Review Supabase Security Advisor findings involving SECURITY DEFINER RPC functions; determine intended caller roles before changing grants.
 5. Prioritize remaining missing foreign-key indexes after inspecting existing indexes and expected table sizes.
-6. Run the full test/build pipeline for the latest branch head.
 
 ## Safety rules
 - Never force-push.

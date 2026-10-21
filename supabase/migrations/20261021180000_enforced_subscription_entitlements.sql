@@ -99,9 +99,9 @@ as $$
     case when ms.status = 'active' and (ms.current_period_end is null or ms.current_period_end > now())
       then case ms.plan when 'starter' then 200 when 'growth' then 1000 when 'flagship' then 5000 else 50 end
       else 50 end as max_products,
-    (ms.status = 'active' and (ms.current_period_end is null or ms.current_period_end > now()) and ms.plan in ('growth','flagship')) as bulk_tools,
-    (ms.status = 'active' and (ms.current_period_end is null or ms.current_period_end > now()) and ms.plan in ('growth','flagship')) as advanced_analytics,
-    (ms.status = 'active' and (ms.current_period_end is null or ms.current_period_end > now()) and ms.plan in ('growth','flagship')) as ai_catalogue_tools,
+    coalesce(ms.status = 'active' and (ms.current_period_end is null or ms.current_period_end > now()) and ms.plan in ('growth','flagship'), false) as bulk_tools,
+    coalesce(ms.status = 'active' and (ms.current_period_end is null or ms.current_period_end > now()) and ms.plan in ('growth','flagship'), false) as advanced_analytics,
+    coalesce(ms.status = 'active' and (ms.current_period_end is null or ms.current_period_end > now()) and ms.plan in ('growth','flagship'), false) as ai_catalogue_tools,
     case when ms.status = 'active' and (ms.current_period_end is null or ms.current_period_end > now())
       then case ms.plan when 'flagship' then 10 when 'growth' then 3 else 1 end
       else 1 end as team_seats

@@ -34,10 +34,15 @@ begin
     return new;
   end if;
 
-  select count(*) into v_count
-  from public.products p
-  where p.merchant_id = new.merchant_id
-    and (tg_op <> 'UPDATE' or p.id <> old.id);
+  if tg_op = 'UPDATE' then
+    select count(*) into v_count
+    from public.products p
+    where p.merchant_id = new.merchant_id and p.id <> old.id;
+  else
+    select count(*) into v_count
+    from public.products p
+    where p.merchant_id = new.merchant_id;
+  end if;
 
   if v_count >= v_limit then
     raise exception 'Merchant product limit reached for plan % (limit %)', v_plan, v_limit

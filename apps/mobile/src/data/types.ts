@@ -93,6 +93,7 @@ export interface StylePreferences {
 
 export interface Merchant {
   id: ID;
+  owner_id?: ID | null;
   slug: string;
   name: string;
   logo_url: string | null;

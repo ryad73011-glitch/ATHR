@@ -83,7 +83,7 @@ Deno.serve(async (req: Request) => {
     if (
       typeof userId !== 'string' ||
       typeof plan !== 'string' ||
-      !['premium_monthly', 'premium_annual'].includes(plan) ||
+      !['premium_monthly', 'premium_annual', 'merchant_starter', 'merchant_growth', 'merchant_flagship'].includes(plan) ||
       typeof subscriptionId !== 'string'
     ) {
       console.error('Checkout session is missing required user/plan/subscription metadata');

@@ -24,6 +24,7 @@ WasmChatRequest,
 StylePreferences,
 Subscription,
 SubscriptionPlan,
+MerchantSubscriptionPlan,
 WardrobeItem,
 } from './types';
 

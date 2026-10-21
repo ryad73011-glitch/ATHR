@@ -25,7 +25,7 @@ Deno.serve(async (req: Request) => {
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
   if (!supabaseUrl || !anonKey || !serviceRoleKey) return json({ error: 'Server configuration error' }, 500);
 
-  const token = req.headers.get('Authorization')?.match(/^Bearer\\s+(.+)$/i)?.[1];
+  const token = req.headers.get('Authorization')?.match(/^Bearer\s+(.+)$/i)?.[1];
   if (!token) return json({ error: 'Authentication required' }, 401);
   const authClient = createClient(supabaseUrl, anonKey, { auth: { persistSession: false, autoRefreshToken: false } });
   const { data: authData, error: authError } = await authClient.auth.getUser(token);

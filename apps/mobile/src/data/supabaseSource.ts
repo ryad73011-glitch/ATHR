@@ -25,6 +25,7 @@ import type {
   StudioRequest,
   StudioResult,
   WasmChatRequest,
+  MerchantSubscriptionPlan,
 } from './types';
 import { demoProducts } from './demo/seed';
 
@@ -795,6 +796,22 @@ async updatePassword(password) {
           current_period_end: null,
         }
       );
+    },
+
+    async requestMerchantCheckout(plan: MerchantSubscriptionPlan, merchantId: string) {
+      try {
+        const { data, error } = await sb.functions.invoke('create-checkout', {
+          body: { plan, merchant_id: merchantId },
+        });
+        if (error) throw new Error(error.message);
+        const body = data as { status?: 'not_configured' | 'url'; url?: string; message?: string };
+        if (body?.status === 'url' && body.url) {
+          return { status: 'url' as const, url: body.url, message: body.message ?? 'Opening secure checkout.' };
+        }
+        return { status: 'not_configured' as const, message: body?.message ?? 'Merchant checkout is not configured. No payment was taken.' };
+      } catch {
+        return { status: 'not_configured' as const, message: 'Merchant checkout is unavailable. No payment was taken.' };
+      }
     },
 
     async requestCheckout(plan) {

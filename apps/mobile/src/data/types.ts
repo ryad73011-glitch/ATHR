@@ -93,6 +93,7 @@ export interface StylePreferences {
 
 export interface Merchant {
   id: ID;
+  owner_id?: ID | null;
   slug: string;
   name: string;
   logo_url: string | null;
@@ -265,6 +266,7 @@ export interface EditorialStory {
 }
 
 export type SubscriptionPlan = 'free' | 'premium_monthly' | 'premium_annual';
+export type MerchantSubscriptionPlan = 'merchant_starter' | 'merchant_growth' | 'merchant_flagship';
 
 export interface Subscription {
   user_id: ID;

@@ -24,6 +24,7 @@ WasmChatRequest,
 StylePreferences,
 Subscription,
 SubscriptionPlan,
+MerchantSubscriptionPlan,
 WardrobeItem,
 } from './types';
 
@@ -155,6 +156,11 @@ click: Omit<AffiliateClick, 'id' | 'created_at'>,
 ): Promise<AffiliateClick>;
 getSubscription(userId: string): Promise<Subscription>;
 requestCheckout(plan: SubscriptionPlan): Promise<{
+status: 'not_configured' | 'url';
+url?: string;
+message: string;
+}>;
+requestMerchantCheckout(plan: MerchantSubscriptionPlan, merchantId: string): Promise<{
 status: 'not_configured' | 'url';
 url?: string;
 message: string;

@@ -221,6 +221,39 @@ Deno.serve(async (req: Request) => {
     },
   );
 
+  // Reserve a daily AI request atomically on the server. Never trust a plan
+  // value supplied by the mobile client.
+  const { data: quotaRows, error: quotaError } = await supabase.rpc(
+    'consume_ai_request',
+    { p_user_id: userId },
+  );
+
+  if (quotaError || !Array.isArray(quotaRows) || !quotaRows[0]) {
+    console.error('AI quota reservation failed');
+    return json({ error: 'AI usage could not be verified. Please try again.' }, 503);
+  }
+
+  const quota = quotaRows[0] as {
+    allowed: boolean;
+    plan: string;
+    used: number;
+    daily_limit: number;
+  };
+
+  if (!quota.allowed) {
+    return json(
+      {
+        error: 'Daily AI limit reached',
+        code: 'AI_DAILY_LIMIT_REACHED',
+        plan: quota.plan,
+        used: quota.used,
+        daily_limit: quota.daily_limit,
+        reset: '00:00 UTC',
+      },
+      429,
+    );
+  }
+
   const started = Date.now();
 
   async function logUsage(

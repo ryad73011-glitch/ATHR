@@ -185,6 +185,23 @@ Deno.serve(async (req: Request) => {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
+  // Enforce AI plan allowances on the server; never trust a client-supplied tier.
+  const { data: quotaRows, error: quotaError } = await supabase.rpc('consume_ai_request', {
+    p_user_id: auth.user.id,
+  });
+  if (quotaError) {
+    console.error('AI usage quota check failed');
+    return json({ error: 'AI usage limits are temporarily unavailable. Please retry.' }, 503);
+  }
+  const quota = Array.isArray(quotaRows) ? quotaRows[0] : quotaRows;
+  if (!quota || quota.allowed !== true) {
+    return json({
+      error: 'Daily AI request limit reached. Upgrade to ATHR Premium for a higher allowance.',
+      code: 'AI_DAILY_LIMIT',
+      usage: quota ? { used: quota.used, daily_limit: quota.daily_limit, plan: quota.plan } : null,
+    }, 429);
+  }
+
   try {
     const { data: products, error: productError } = await supabase
       .from('products')

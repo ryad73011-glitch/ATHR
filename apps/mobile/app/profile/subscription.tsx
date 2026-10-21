@@ -1,6 +1,7 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import React from 'react';
+import * as WebBrowser from 'expo-web-browser';
 import { View } from 'react-native';
 
 import { Badge, Button, Card, Header, Screen, Text, useToast } from '../../src/components/ui';
@@ -11,7 +12,7 @@ import { useSession } from '../../src/store/session';
 import { spacing } from '../../src/theme/tokens';
 import { useTheme } from '../../src/theme/ThemeProvider';
 
-const BENEFITS = ['Unlimited Style Studio generations', 'Advanced colour & fit analysis', 'Priority face-off placement', 'Offline wardrobe sync'];
+const BENEFITS = ['Unlimited Style Studio generations', 'Advanced colour & fit analysis', 'Priority access to new styling tools', 'Offline wardrobe sync'];
 
 export default function Subscription() {
   const source = useDataSource();
@@ -26,7 +27,16 @@ export default function Subscription() {
 
   const checkout = useMutation({
     mutationFn: (plan: SubscriptionPlan) => source.requestCheckout(plan),
-    onSuccess: (res) => toast.show(res.message),
+    onSuccess: async (res) => {
+      toast.show(res.message);
+      if (res.status === 'url' && res.url) {
+        try {
+          await WebBrowser.openBrowserAsync(res.url);
+        } catch {
+          toast.show('Checkout URL is ready, but this device could not open it.');
+        }
+      }
+    },
   });
 
   return (

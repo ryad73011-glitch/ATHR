@@ -46,6 +46,7 @@ import type {
   StylePreferences,
   Subscription,
   SubscriptionPlan,
+  MerchantSubscriptionPlan,
   WardrobeItem,
 } from './types';
 
@@ -711,6 +712,13 @@ export const demoSource: DataSource = {
       status: p?.premium ? 'active' : 'active',
       provider: 'none',
       current_period_end: p?.premium ? new Date(Date.now() + 30 * 864e5).toISOString() : null,
+    };
+  },
+
+  async requestMerchantCheckout(_plan: MerchantSubscriptionPlan, _merchantId: string) {
+    return {
+      status: 'not_configured' as const,
+      message: 'Merchant checkout is not configured in demo mode. No payment was taken.',
     };
   },
 

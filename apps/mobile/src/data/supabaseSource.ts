@@ -22,6 +22,7 @@ import type {
   Paged,
   Product,
   ProductFilter,
+  PublicProfile,
   StudioRequest,
   StudioResult,
   WasmChatRequest,
@@ -698,7 +699,7 @@ async updatePassword(password) {
       return (data ?? []) as Look[];
     },
 
-    async listPublicProfiles() {
+    async listPublicProfiles(): Promise<PublicProfile[]> {
       const { data, error } = await sb
         .from('public_profiles')
         .select('*')
@@ -706,10 +707,10 @@ async updatePassword(password) {
         .limit(100);
 
       if (error) throw new Error(error.message);
-      return (data ?? []) as import('./types').PublicProfile[];
+      return (data ?? []) as PublicProfile[];
     },
 
-    async getProfileByHandle(handle) {
+    async getProfileByHandle(handle): Promise<PublicProfile | null> {
       const { data, error } = await sb
         .from('public_profiles')
         .select('*')

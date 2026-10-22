@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Image, View } from 'react-native';
+import { Alert, Image, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 
 import { ProductRow } from '../../src/components/cards';
@@ -39,9 +39,29 @@ export default function MerchantDashboard() {
   const [adding, setAdding] = useState(false);
   const [title, setTitle] = useState('');
   const [price, setPrice] = useState('');
+  const [stockCount, setStockCount] = useState('0');
   const [selectedImage, setSelectedImage] = useState<{ uri: string; base64: string; mimeType: string } | null>(null);
   const [classification, setClassification] = useState<ProductImageClassification | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
+  const [editingProductId, setEditingProductId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editPrice, setEditPrice] = useState('');
+  const [editStock, setEditStock] = useState('');
+
+  const analyseSelectedImage = async (image: { uri: string; base64: string; mimeType: string }) => {
+    setAnalyzing(true);
+    setClassification(null);
+    try {
+      const resultClassification = await source.classifyProductImage(image.base64, image.mimeType);
+      setClassification(resultClassification);
+      toast.show(resultClassification.review_required ? 'Image analysed; audience needs review.' : 'Image analysed and classified.');
+    } catch (error) {
+      // Keep the selected photo so the user can retry without choosing it again.
+      toast.show(error instanceof Error ? error.message : 'Could not analyse the product image.');
+    } finally {
+      setAnalyzing(false);
+    }
+  };
 
   const chooseAndAnalyseImage = async () => {
     try {
@@ -59,18 +79,12 @@ export default function MerchantDashboard() {
         throw new Error('Choose a JPEG, PNG, or WebP image.');
       }
       if (asset.base64.length > 5_500_000) throw new Error('Image is too large. Choose a smaller photo.');
-      setAnalyzing(true);
-      setSelectedImage({ uri: asset.uri, base64: asset.base64, mimeType });
+      const image = { uri: asset.uri, base64: asset.base64, mimeType };
+      setSelectedImage(image);
       setClassification(null);
-      const resultClassification = await source.classifyProductImage(asset.base64, mimeType);
-      setClassification(resultClassification);
-      toast.show(resultClassification.review_required ? 'Image analysed; audience needs review.' : 'Image analysed and classified.');
+      await analyseSelectedImage(image);
     } catch (error) {
-      setSelectedImage(null);
-      setClassification(null);
-      toast.show(error instanceof Error ? error.message : 'Could not analyse the product image.');
-    } finally {
-      setAnalyzing(false);
+      toast.show(error instanceof Error ? error.message : 'Could not read the product image.');
     }
   };
 
@@ -91,52 +105,70 @@ export default function MerchantDashboard() {
   const stats = useQuery({
     queryKey: ['mstats', activeMerchantId],
     queryFn: () => source.merchantStats(activeMerchantId),
-    enabled: Boolean(activeMerchantId),
+    enabled: Boolean(activeMerchantId) && (source.mode === 'demo' || Boolean(ownedMerchant.data?.approved)),
   });
   const products = useQuery({
     queryKey: ['mproducts', activeMerchantId],
     queryFn: () => source.listProducts({ merchant_id: activeMerchantId, limit: 50 }),
-    enabled: Boolean(activeMerchantId),
+    enabled: Boolean(activeMerchantId) && (source.mode === 'demo' || Boolean(ownedMerchant.data?.approved)),
   });
 
   const add = useMutation({
     mutationFn: async () => {
       if (!selectedImage || !classification) throw new Error('Select and analyse a product image first.');
+      const cleanTitle = title.trim();
+      const parsedPrice = Number(price);
+      const parsedStock = Number(stockCount);
+      if (!cleanTitle || cleanTitle.length > 120) throw new Error('Product title must be between 1 and 120 characters.');
+      if (!Number.isSafeInteger(parsedPrice) || parsedPrice <= 0) throw new Error('Enter a positive whole-number price in DZD.');
+      if (!Number.isSafeInteger(parsedStock) || parsedStock < 0) throw new Error('Enter a non-negative whole-number stock quantity.');
       const imageUrl = await source.uploadProductImage(selectedImage.base64, selectedImage.mimeType);
-      return source.upsertProduct(
-        {
-          title,
-          price: Number(price) || 0,
-          category: classification.category,
-          universe: classification.universe,
-          currency: 'DZD',
-          colors: classification.colors,
-          images: [imageUrl],
-          target_audience: classification.target_audience,
-          classification_status: classification.classification_status,
-          classification_confidence: classification.confidence,
-          image_analysis: {
+      try {
+        return await source.upsertProduct(
+          {
+            title: cleanTitle,
+            price: parsedPrice,
             category: classification.category,
-            target_audience: classification.target_audience,
-            confidence: classification.confidence,
-            colors: classification.colors,
             universe: classification.universe,
+            currency: 'DZD',
+            colors: classification.colors,
+            images: [imageUrl],
+            target_audience: classification.target_audience,
+            classification_status: classification.classification_status,
+            classification_confidence: classification.confidence,
+            image_analysis: {
+              category: classification.category,
+              target_audience: classification.target_audience,
+              confidence: classification.confidence,
+              colors: classification.colors,
+              universe: classification.universe,
+              description: classification.description,
+              model: classification.model,
+            },
             description: classification.description,
-            model: classification.model,
+            in_stock: parsedStock > 0,
+            stock_count: parsedStock,
           },
-          description: classification.description,
-          in_stock: true,
-          stock_count: 5,
-        },
-        activeMerchantId,
-      );
+          activeMerchantId,
+        );
+      } catch (saveError) {
+        // Avoid leaving an orphaned Storage object when the product insert fails.
+        try {
+          await source.deleteProductImage(imageUrl);
+        } catch {
+          // Preserve the original save error; storage policies may block cleanup.
+        }
+        throw saveError;
+      }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['mproducts', activeMerchantId] });
+      qc.invalidateQueries({ queryKey: ['owned-merchant'] });
       toast.show(`${t('merchants.addProduct')} ✓`);
       setAdding(false);
       setTitle('');
       setPrice('');
+      setStockCount('0');
       setSelectedImage(null);
       setClassification(null);
     },
@@ -145,15 +177,102 @@ export default function MerchantDashboard() {
     },
   });
 
+  const updateProduct = useMutation({
+    mutationFn: ({ productId, patch }: { productId: string; patch: { title?: string; price?: number; in_stock?: boolean; stock_count?: number | null } }) => source.updateMerchantProduct(productId, activeMerchantId, patch),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['mproducts', activeMerchantId] });
+      qc.invalidateQueries({ queryKey: ['merchants'] });
+      toast.show('Product updated.');
+      setEditingProductId(null);
+    },
+    onError: (error) => toast.show(error instanceof Error ? error.message : 'Could not update product.'),
+  });
+
+  const deleteProduct = useMutation({
+    mutationFn: async (productId: string) => {
+      // Read image references before deleting the row, then best-effort cleanup after
+      // the database confirms deletion. A Storage cleanup failure must not undo or
+      // misreport a successful product deletion.
+      const product = await source.getProduct(productId);
+      await source.deleteMerchantProduct(productId, activeMerchantId);
+      if (product?.merchant_id === activeMerchantId) {
+        for (const imageUrl of product.images ?? []) {
+          try {
+            await source.deleteProductImage(imageUrl);
+          } catch {
+            // Older/external images may not be owned by this user or bucket.
+          }
+        }
+      }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['mproducts', activeMerchantId] });
+      qc.invalidateQueries({ queryKey: ['mstats', activeMerchantId] });
+      qc.invalidateQueries({ queryKey: ['merchants'] });
+      qc.invalidateQueries({ queryKey: ['owned-merchant'] });
+      toast.show('Product deleted.');
+    },
+    onError: (error) => toast.show(error instanceof Error ? error.message : 'Could not delete product.'),
+  });
+
+  const confirmDeleteProduct = (productId: string, productTitle: string) => {
+    Alert.alert('Delete product?', `“${productTitle}” will be removed from your store.`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: () => deleteProduct.mutate(productId) },
+    ]);
+  };
   const max = Math.max(...(stats.data?.by_day.map((d) => d.clicks) ?? [1]), 1);
 
   return (
     <Screen scroll insetBottom>
-      <Header title={t('merchants.dashboard')} subtitle={activeMerchantName} onBack={() => router.back()} right={<Button label={t('merchants.addProduct')} small disabled={source.mode === 'live' && !activeMerchantId} onPress={() => setAdding((a) => !a)} />} />
+      <Header
+        title={t('merchants.dashboard')}
+        subtitle={activeMerchantName}
+        onBack={() => router.back()}
+        right={
+          <Button
+            label={t('merchants.addProduct')}
+            small
+            disabled={source.mode === 'live' && (!activeMerchantId || !ownedMerchant.data?.approved)}
+            onPress={() => setAdding((a) => !a)}
+          />
+        }
+      />
+
+      {source.mode === 'live' && ownedMerchant.isLoading ? <Skeleton width="100%" height={88} style={{ marginBottom: spacing.lg }} /> : null}
 
       {source.mode === 'live' && !ownedMerchant.isLoading && !activeMerchantId ? (
-        <Card style={{ padding: spacing.md, marginBottom: spacing.lg }}>
-          <Text variant="body">No merchant profile is linked to this account yet. Register or link a merchant profile before adding products.</Text>
+        <Card style={{ padding: spacing.lg, marginBottom: spacing.lg, gap: spacing.sm }}>
+          <Text variant="title">Open your ATHR store</Text>
+          <Text variant="body" muted>No store is linked to this account yet. Submit a store application to start selling on ATHR.</Text>
+          <Button label="Register your store" full onPress={() => router.push('/merchants')} />
+        </Card>
+      ) : null}
+
+      {source.mode === 'live' && activeMerchantId && ownedMerchant.data && !ownedMerchant.data.approved ? (
+        <Card style={{ padding: spacing.lg, marginBottom: spacing.lg, gap: spacing.sm }}>
+          <Text variant="title">Application under review</Text>
+          <Badge label="Pending approval" />
+          <Text variant="body" muted>
+            Your store, {ownedMerchant.data.name}, is waiting for ATHR approval. Product publishing and analytics unlock after approval.
+          </Text>
+          <Text variant="caption" faint>Submitted {new Date(ownedMerchant.data.created_at).toLocaleDateString()}</Text>
+        </Card>
+      ) : null}
+
+      {source.mode === 'live' && ownedMerchant.data?.approved ? (
+        <Card style={{ padding: spacing.lg, marginBottom: spacing.lg, gap: spacing.sm }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <View style={{ flex: 1 }}>
+              <Text variant="title">{ownedMerchant.data.name}</Text>
+              <Text variant="caption" muted>{ownedMerchant.data.city} · {ownedMerchant.data.product_count} products</Text>
+            </View>
+            <View style={{ alignItems: 'flex-end' }}>
+              <Text variant="title">{ownedMerchant.data.review_count ? ownedMerchant.data.rating.toFixed(1) : '—'}/5</Text>
+              <Text variant="caption" faint>{ownedMerchant.data.review_count} ratings</Text>
+            </View>
+          </View>
+          <Button label="Read customer ratings" full variant="outline" onPress={() => router.push(`/merchants/reviews?merchantId=${ownedMerchant.data!.id}`)} />
         </Card>
       ) : null}
 
@@ -161,8 +280,12 @@ export default function MerchantDashboard() {
         <Card style={{ padding: spacing.lg, marginBottom: spacing.lg }}>
           <Input label="Title" value={title} onChangeText={setTitle} />
           <Input label="Price (DZD)" value={price} onChangeText={setPrice} keyboardType="number-pad" />
+          <Input label={t('merchants.stockQuantity')} value={stockCount} onChangeText={setStockCount} keyboardType="number-pad" />
           <Button label={analyzing ? 'Analysing image…' : selectedImage ? 'Choose another product photo' : 'Choose product photo'} full loading={analyzing} disabled={analyzing || add.isPending} onPress={chooseAndAnalyseImage} />
           {selectedImage ? <Image source={{ uri: selectedImage.uri }} style={{ width: '100%', height: 180, borderRadius: radius.md, marginTop: spacing.sm }} resizeMode="contain" /> : null}
+          {selectedImage && !classification && !analyzing ? (
+            <Button label="Retry image analysis" full variant="outline" disabled={add.isPending} onPress={() => analyseSelectedImage(selectedImage)} />
+          ) : null}
           {classification ? (
             <View style={{ marginTop: spacing.md, marginBottom: spacing.md, gap: spacing.xs }}>
               <Text variant="body" accent>{classification.category} · {classification.target_audience === 'women' ? 'Women' : classification.target_audience === 'men' ? 'Men' : classification.target_audience === 'unisex' ? 'Unisex' : 'Audience unclear'}</Text>
@@ -171,10 +294,12 @@ export default function MerchantDashboard() {
               {classification.review_required ? <Text variant="caption" accent>Needs review: the app will keep the audience as unknown rather than guess.</Text> : null}
             </View>
           ) : null}
-          <Button label={t('common.save')} full loading={add.isPending} disabled={!title.trim() || !Number(price) || !selectedImage || !classification || analyzing} onPress={() => add.mutate()} />
+          <Button label={t('common.save')} full loading={add.isPending} disabled={!title.trim() || title.trim().length > 120 || !Number.isSafeInteger(Number(price)) || Number(price) <= 0 || !Number.isSafeInteger(Number(stockCount)) || Number(stockCount) < 0 || !selectedImage || !classification || analyzing} onPress={() => add.mutate()} />
         </Card>
       ) : null}
 
+      {(source.mode === 'demo' || Boolean(ownedMerchant.data?.approved)) ? (
+        <>
       <View style={{ flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.lg }}>
         <Stat label={t('merchants.impressions')} value={String(stats.data?.impressions ?? 0)} />
         <Stat label={t('merchants.clicks')} value={String(stats.data?.clicks ?? 0)} />
@@ -182,8 +307,11 @@ export default function MerchantDashboard() {
       </View>
       <View style={{ flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.lg }}>
         <Stat label={t('merchants.commission')} value={formatMoney(stats.data?.est_commission ?? 0)} />
-        <Stat label="Orders" value={String(stats.data?.orders ?? 0)} />
+        <Stat label={t('merchants.orders')} value={String(stats.data?.orders ?? 0)} />
       </View>
+      <Text variant="caption" muted style={{ marginBottom: spacing.md }}>
+        {t('merchants.analyticsDisclaimer')}
+      </Text>
 
       <Text variant="caption" muted style={{ marginBottom: spacing.sm }}>
         {t('merchants.clicks')} · 7d
@@ -208,9 +336,43 @@ export default function MerchantDashboard() {
       <Text variant="title" style={{ marginBottom: spacing.sm }}>
         {t('merchants.products')} ({products.data?.total ?? 0})
       </Text>
+      {products.isError ? (
+        <Card style={{ padding: spacing.lg, marginBottom: spacing.md, gap: spacing.sm }}>
+          <Text variant="body">Could not load your products.</Text>
+          <Text variant="caption" muted>{products.error instanceof Error ? products.error.message : 'Check your connection and try again.'}</Text>
+          <Button label="Retry" full variant="outline" loading={products.isFetching} onPress={() => products.refetch()} />
+        </Card>
+      ) : null}
+      {products.isLoading ? <Skeleton width="100%" height={100} style={{ marginBottom: spacing.md }} /> : null}
+      {!products.isLoading && !products.isError && (products.data?.items.length ?? 0) === 0 ? (
+        <Card style={{ padding: spacing.lg, marginBottom: spacing.md, gap: spacing.sm }}>
+          <Text variant="title">Your catalogue is empty</Text>
+          <Text variant="body" muted>Add your first product with a clear photo, correct price, and stock quantity.</Text>
+          <Button label={t('merchants.addProduct')} full onPress={() => setAdding(true)} />
+        </Card>
+      ) : null}
       {(products.data?.items ?? []).map((p) => (
-        <ProductRow key={p.id} product={p} />
+        <View key={p.id} style={{ marginBottom: spacing.md }}>
+          <ProductRow product={p} />
+          {editingProductId === p.id ? (
+            <Card style={{ padding: spacing.md, gap: spacing.sm }}>
+              <Input label="Product title" value={editTitle} onChangeText={setEditTitle} maxLength={120} />
+              <Input label="Price (DZD)" value={editPrice} onChangeText={setEditPrice} keyboardType="number-pad" />
+              <Input label="Stock quantity" value={editStock} onChangeText={setEditStock} keyboardType="number-pad" />
+              <Button label="Save changes" full loading={updateProduct.isPending} disabled={!editTitle.trim() || !Number(editPrice) || !/^\d+$/.test(editStock) || updateProduct.isPending} onPress={() => updateProduct.mutate({ productId: p.id, patch: { title: editTitle.trim(), price: Number(editPrice), stock_count: Number(editStock), in_stock: Number(editStock) > 0 } })} />
+              <Button label="Cancel" full variant="outline" onPress={() => setEditingProductId(null)} />
+            </Card>
+          ) : (
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.xs }}>
+              <Button label="Edit / stock" small variant="outline" onPress={() => { setEditingProductId(p.id); setEditTitle(p.title); setEditPrice(String(p.price)); setEditStock(String(p.stock_count ?? 0)); }} />
+              <Button label={p.in_stock ? 'Mark out of stock' : 'Mark in stock'} small variant="outline" loading={updateProduct.isPending && updateProduct.variables?.productId === p.id} onPress={() => updateProduct.mutate({ productId: p.id, patch: { in_stock: !p.in_stock, ...(p.in_stock ? {} : { stock_count: Math.max(1, p.stock_count ?? 1) }) } })} />
+              <Button label="Delete" small variant="outline" loading={deleteProduct.isPending && deleteProduct.variables === p.id} onPress={() => confirmDeleteProduct(p.id, p.title)} />
+            </View>
+          )}
+        </View>
       ))}
+        </>
+      ) : null}
     </Screen>
   );
 }

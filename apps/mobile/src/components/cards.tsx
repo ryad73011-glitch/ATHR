@@ -126,7 +126,7 @@ export function MerchantCard({ merchant }: { merchant: Merchant }) {
   const router = useRouter();
   const { tokens } = useTheme();
   return (
-    <Card onPress={() => router.push(`/merchants?focus=${merchant.id}`)} style={{ padding: spacing.lg, marginBottom: spacing.md }}>
+    <Card onPress={() => router.push(`/merchants/reviews?merchantId=${merchant.id}`)} style={{ padding: spacing.lg, marginBottom: spacing.md }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
         <Avatar name={merchant.name} size={44} />
         <View style={{ flex: 1 }}>
@@ -137,7 +137,7 @@ export function MerchantCard({ merchant }: { merchant: Merchant }) {
             {merchant.verified ? <Ionicons name="shield-checkmark" size={15} color={tokens.success} /> : null}
           </View>
           <Text variant="caption" faint numberOfLines={1}>
-            {merchant.city} · {merchant.product_count} products · ★ {merchant.rating.toFixed(1)}
+            {merchant.city} · {merchant.product_count} products · ★ {merchant.rating.toFixed(1)} ({merchant.review_count} reviews)
           </Text>
         </View>
         <UniverseBadge universe={merchant.plan === 'flagship' ? 'CALM' : 'CHAOS'} />

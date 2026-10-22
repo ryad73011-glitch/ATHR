@@ -34,6 +34,7 @@ import type {
   Look,
   LookFilter,
   Merchant,
+  MerchantReview,
   Outfit,
   Product,
   ProductFilter,
@@ -70,6 +71,7 @@ interface DemoState {
   customProducts: Product[];
   customLooks: Look[];
   merchants: Merchant[];
+  merchantReviews: MerchantReview[];
   prefs: Record<string, StylePreferences>;
 }
 
@@ -90,6 +92,7 @@ const defaultState = (): DemoState => ({
   customProducts: [],
   customLooks: [],
   merchants: [...demoMerchants],
+  merchantReviews: [],
   prefs: {},
 });
 
@@ -352,6 +355,44 @@ export const demoSource: DataSource = {
     return state.merchants.find((m) => m.id === id) ?? null;
   },
 
+  async listMerchantReviews(merchantId) {
+    await load();
+    return state.merchantReviews.filter((r) => r.merchant_id === merchantId).sort((a, b) => b.created_at.localeCompare(a.created_at));
+  },
+
+  async addMerchantReview(merchantId, rating, comment = '') {
+    await load();
+    const session = state.session;
+    if (!session) throw new Error('Sign in to rate this store.');
+    if (!Number.isInteger(rating) || rating < 1 || rating > 5) throw new Error('Choose a rating from 1 to 5.');
+    const merchant = state.merchants.find((m) => m.id === merchantId);
+    if (!merchant || !merchant.approved) throw new Error('Only approved stores can be rated.');
+    if (merchant.owner_id && merchant.owner_id === session.user_id) throw new Error('You cannot rate your own store.');
+    if (state.merchantReviews.some((r) => r.merchant_id === merchantId && r.user_id === session.user_id)) throw new Error('You have already rated this store. Edit your existing rating instead.');
+    const now = new Date().toISOString();
+    const review: MerchantReview = { id: uid('rev'), merchant_id: merchantId, user_id: session.user_id, rating, comment: comment.trim() || null, created_at: now, updated_at: now };
+    state.merchantReviews.push(review);
+    const rows = state.merchantReviews.filter((r) => r.merchant_id === merchantId);
+    merchant.rating = Math.round(rows.reduce((sum, r) => sum + r.rating, 0) / rows.length * 100) / 100;
+    merchant.review_count = rows.length;
+    persist();
+    return review;
+  },
+  async updateMerchantReview(reviewId, rating, comment = '') {
+    await load();
+    const review = state.merchantReviews.find((r) => r.id === reviewId && r.user_id === state.session?.user_id);
+    if (!review) throw new Error('Review not found or not yours.');
+    if (!Number.isInteger(rating) || rating < 1 || rating > 5) throw new Error('Choose a rating from 1 to 5.');
+    review.rating = rating;
+    review.comment = comment.trim() || null;
+    review.updated_at = new Date().toISOString();
+    const merchant = state.merchants.find((m) => m.id === review.merchant_id);
+    const rows = state.merchantReviews.filter((r) => r.merchant_id === review.merchant_id);
+    if (merchant && rows.length) merchant.rating = Math.round(rows.reduce((sum, r) => sum + r.rating, 0) / rows.length * 100) / 100;
+    persist();
+    return review;
+  },
+
   async applyMerchant(input) {
     await load();
     const m: Merchant = {
@@ -386,6 +427,10 @@ export const demoSource: DataSource = {
     throw new Error('Product image uploads need live Supabase mode. Configure the Supabase connection to use this feature.');
   },
 
+  async deleteProductImage(_imageUrl: string) {
+    // Demo mode never uploads remote files.
+  },
+
   async upsertProduct(input, merchantId) {
     await load();
     const merchant = state.merchants.find((m) => m.id === merchantId);
@@ -417,6 +462,41 @@ export const demoSource: DataSource = {
     if (merchant) merchant.product_count += 1;
     persist();
     return product;
+  },
+
+  async updateMerchantProduct(productId, merchantId, patch) {
+    await load();
+    const merchant = state.merchants.find((m) => m.id === merchantId);
+    if (!merchant) throw new Error('Store not found.');
+    const product = allProducts().find((p) => p.id === productId && p.merchant_id === merchantId);
+    if (!product) throw new Error('Product not found in this store.');
+    if (patch.title !== undefined) {
+      if (!patch.title.trim()) throw new Error('Product title cannot be empty.');
+      product.title = patch.title.trim();
+    }
+    if (patch.price !== undefined) {
+      if (!Number.isFinite(patch.price) || patch.price <= 0) throw new Error('Price must be greater than zero.');
+      product.price = patch.price;
+    }
+    if (patch.in_stock !== undefined) product.in_stock = patch.in_stock;
+    if (patch.stock_count !== undefined) {
+      if (patch.stock_count !== null && (!Number.isInteger(patch.stock_count) || patch.stock_count < 0)) {
+        throw new Error('Stock must be a non-negative whole number.');
+      }
+      product.stock_count = patch.stock_count;
+    }
+    persist();
+    return product;
+  },
+
+  async deleteMerchantProduct(productId, merchantId) {
+    await load();
+    const index = state.customProducts.findIndex((p) => p.id === productId && p.merchant_id === merchantId);
+    if (index < 0) throw new Error('Only products created in this store can be deleted.');
+    state.customProducts.splice(index, 1);
+    const merchant = state.merchants.find((m) => m.id === merchantId);
+    if (merchant) merchant.product_count = Math.max(0, merchant.product_count - 1);
+    persist();
   },
 
   async merchantStats(merchantId) {

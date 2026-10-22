@@ -36,13 +36,19 @@ import { useSession } from '../../src/store/session';
 import { useTheme } from '../../src/theme/ThemeProvider';
 import { spacing } from '../../src/theme/tokens';
 
+type AttachedImage = {
+  uri: string;
+  base64: string;
+  mimeType: 'image/jpeg' | 'image/png' | 'image/webp';
+};
+
 type ChatMessage = StudioMessage & {
   imageUris?: string[];
 };
 
 type ChatRequest = {
   text: string;
-  images: string[];
+  images: AttachedImage[];
   occasion: Occasion;
   budget: string;
   universe: Universe;
@@ -122,7 +128,7 @@ export default function Studio() {
   const [universe, setUniverse] =
     useState<Universe>('CALM');
   const [palette, setPalette] = useState<string[]>([]);
-  const [images, setImages] = useState<string[]>([]);
+  const [images, setImages] = useState<AttachedImage[]>([]);
   
 const [messages, setMessages] = useState<ChatMessage[]>([]);
 const [messagesLoadedFor, setMessagesLoadedFor] = useState<string | null>(null);
@@ -217,12 +223,6 @@ React.useEffect(() => {
 
   const run = useMutation({
     mutationFn: async (request: ChatRequest) => {
-      if (request.images.length > 0) {
-        throw new Error(
-          'Image analysis is not available yet. Send a text message instead.',
-        );
-      }
-      
       const history = messages
         .filter(
           (item) =>
@@ -240,6 +240,7 @@ React.useEffect(() => {
         history,
         universe: request.universe,
         audience: request.audience,
+        images: request.images.map(({ base64, mimeType }) => ({ base64, mimeType })),
       });
     },
 
@@ -250,7 +251,7 @@ React.useEffect(() => {
         id: `user_${Date.now()}`,
         role: 'user',
         content: request.text,
-        imageUris: request.images,
+        imageUris: request.images.map((image) => image.uri),
         created_at: now,
       };
 
@@ -312,14 +313,22 @@ React.useEffect(() => {
           mediaTypes: ['images'],
           allowsMultipleSelection: false,
           quality: 0.7,
+          base64: true,
         });
 
       if (result.canceled) return;
 
-      const uri = result.assets[0]?.uri;
-      if (uri) {
-        setImages((current) => [...current, uri].slice(-4));
+      const asset = result.assets[0];
+      if (!asset?.uri || !asset.base64) {
+        toast.show('Could not read this image. Please choose another photo.');
+        return;
       }
+
+      const mimeType: AttachedImage['mimeType'] =
+        asset.mimeType === 'image/png' || asset.mimeType === 'image/webp'
+          ? asset.mimeType
+          : 'image/jpeg';
+      setImages((current) => [...current, { uri: asset.uri, base64: asset.base64!, mimeType }].slice(-4));
     } catch {
       toast.show(t('common.error'));
     }
@@ -938,10 +947,10 @@ React.useEffect(() => {
                 { borderColor: tokens.border },
               ]}
             >
-              {images.map((uri, index) => (
-                <View key={`${uri}_${index}`} style={styles.preview}>
+              {images.map((image, index) => (
+                <View key={`${image.uri}_${index}`} style={styles.preview}>
                   <Image
-                    source={{ uri }}
+                    source={{ uri: image.uri }}
                     style={styles.previewImage}
                   />
                   <Pressable

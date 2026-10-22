@@ -10,6 +10,7 @@ EditorialStory,
 Look,
 LookFilter,
 Merchant,
+MerchantReview,
 Outfit,
 Paged,
 Product,
@@ -76,6 +77,9 @@ similarLooks(lookId: string, limit?: number): Promise<Look[]>;
 // --- merchants ------------------------------------------------------------
 listMerchants(opts?: { approvedOnly?: boolean }): Promise<Merchant[]>;
 getMerchant(id: string): Promise<Merchant | null>;
+listMerchantReviews(merchantId: string): Promise<MerchantReview[]>;
+addMerchantReview(merchantId: string, rating: number, comment?: string): Promise<MerchantReview>;
+updateMerchantReview(reviewId: string, rating: number, comment?: string): Promise<MerchantReview>;
 applyMerchant(input: Partial<Merchant> & { name: string; city: string }): Promise<Merchant>;
 upsertProduct(
 product: Partial<Product> & {
@@ -85,8 +89,15 @@ category: Product['category'];
 },
 merchantId: string,
 ): Promise<Product>;
+updateMerchantProduct(
+productId: string,
+merchantId: string,
+patch: { title?: string; price?: number; in_stock?: boolean; stock_count?: number | null },
+): Promise<Product>;
+deleteMerchantProduct(productId: string, merchantId: string): Promise<void>;
 classifyProductImage(imageBase64: string, mimeType: string): Promise<ProductImageClassification>;
 uploadProductImage(imageBase64: string, mimeType: string): Promise<string>;
+deleteProductImage(imageUrl: string): Promise<void>;
 merchantStats(merchantId: string): Promise<{
 impressions: number;
 clicks: number;

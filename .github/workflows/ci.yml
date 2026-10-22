@@ -14,6 +14,12 @@ on:
 
   workflow_dispatch:
 
+# Keep only the latest build active per branch; rapid development pushes should
+# not consume runners with obsolete APK builds.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   mobile:
     runs-on: ubuntu-latest

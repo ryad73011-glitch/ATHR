@@ -24,6 +24,7 @@ import type {
   StudioResult,
   WasmChatRequest,
   ProductImageClassification,
+  MerchantReview,
 } from './types';
 import { demoProducts } from './demo/seed';
 
@@ -337,10 +338,76 @@ async updatePassword(password) {
       return data;
     },
 
+    async listMerchantReviews(merchantId: string): Promise<MerchantReview[]> {
+      const { data, error } = await sb.from('merchant_reviews')
+        .select('*').eq('merchant_id', merchantId).order('created_at', { ascending: false });
+      if (error) throw new Error(error.message);
+      return (data ?? []) as MerchantReview[];
+    },
+
+    async addMerchantReview(merchantId: string, rating: number, comment = ''): Promise<MerchantReview> {
+      const session = await authed();
+      if (!session) throw new Error('Sign in to rate this store.');
+      if (!Number.isInteger(rating) || rating < 1 || rating > 5) throw new Error('Choose a rating from 1 to 5.');
+      const { data, error } = await sb.from('merchant_reviews').insert({
+        merchant_id: merchantId, user_id: session.user.id, rating, comment: comment.trim() || null,
+      }).select('*').single();
+      if (error) throw new Error(error.message);
+      return data as MerchantReview;
+    },
+
+    async updateMerchantReview(reviewId: string, rating: number, comment = ''): Promise<MerchantReview> {
+      const session = await authed();
+      if (!session) throw new Error('Sign in to edit your rating.');
+      if (!Number.isInteger(rating) || rating < 1 || rating > 5) throw new Error('Choose a rating from 1 to 5.');
+      const { data, error } = await sb.from('merchant_reviews').update({
+        rating, comment: comment.trim() || null, updated_at: new Date().toISOString(),
+      }).eq('id', reviewId).eq('user_id', session.user.id).select('*').single();
+      if (error) throw new Error(error.message);
+      return data as MerchantReview;
+    },
+
     async applyMerchant(input) {
+      const session = await authed();
+      if (!session) throw new Error('Sign in before registering your store.');
+
+      const { data: existing, error: existingError } = await sb
+        .from('merchants')
+        .select('id, approved')
+        .eq('owner_id', session.user.id)
+        .limit(1)
+        .maybeSingle();
+      if (existingError) throw new Error(existingError.message);
+      if (existing) {
+        throw new Error(existing.approved
+          ? 'This account already has a store linked to it.'
+          : 'Your store application is already awaiting review.');
+      }
+
+      const name = input.name.trim();
+      const city = input.city.trim();
+      if (!name || !city) throw new Error('Store name and city are required.');
+
+      const slugBase = name.toLowerCase()
+        .normalize('NFKD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '')
+        .slice(0, 48) || 'store';
+      const slug = `${slugBase}-${session.user.id.slice(0, 8)}`;
+
       const { data, error } = await sb
         .from('merchants')
-        .insert({ ...input, approved: false })
+        .insert({
+          name,
+          city,
+          description: input.description?.trim() || null,
+          country: input.country ?? 'DZ',
+          slug,
+          owner_id: session.user.id,
+          approved: false,
+          verified: false,
+        })
         .select()
         .single();
 
@@ -383,15 +450,110 @@ async updatePassword(password) {
       return sb.storage.from('product-images').getPublicUrl(path).data.publicUrl;
     },
 
+    async deleteProductImage(imageUrl: string): Promise<void> {
+      const session = await authed();
+      if (!session) throw new Error('Sign in before deleting an uploaded product image.');
+
+      const marker = '/storage/v1/object/public/product-images/';
+      const url = new URL(imageUrl);
+      if (url.origin !== new URL(env.url).origin || !url.pathname.includes(marker)) {
+        throw new Error('This image does not belong to the ATHR product image bucket.');
+      }
+
+      const encodedPath = url.pathname.slice(url.pathname.indexOf(marker) + marker.length);
+      const path = decodeURIComponent(encodedPath);
+      if (!path.startsWith(`${session.user.id}/`) || path.includes('..')) {
+        throw new Error('You do not have permission to delete this product image.');
+      }
+
+      const { error } = await sb.storage.from('product-images').remove([path]);
+      if (error) throw new Error(error.message);
+    },
+
     async upsertProduct(input, merchantId) {
+      const session = await authed();
+      if (!session) throw new Error('Sign in before adding products.');
+
+      const { data: merchant, error: merchantError } = await sb
+        .from('merchants')
+        .select('id, name, owner_id, approved')
+        .eq('id', merchantId)
+        .maybeSingle();
+      if (merchantError) throw new Error(merchantError.message);
+      if (!merchant || merchant.owner_id !== session.user.id) {
+        throw new Error('You do not have permission to manage this store.');
+      }
+      if (!merchant.approved) {
+        throw new Error('Your store must be approved before publishing products.');
+      }
+
       const { data, error } = await sb
         .from('products')
-        .insert({ ...input, merchant_id: merchantId })
+        .insert({
+          ...input,
+          merchant_id: merchantId,
+          merchant_name: merchant.name,
+          brand: input.brand?.trim() || merchant.name,
+          currency: input.currency ?? 'DZD',
+          colors: input.colors ?? [],
+          sizes: input.sizes ?? [],
+          images: input.images ?? [],
+          occasions: input.occasions ?? ['everyday'],
+          target_audience: input.target_audience ?? 'unknown',
+          classification_status: input.classification_status ?? 'pending',
+          image_analysis: input.image_analysis ?? {},
+        })
         .select()
         .single();
 
       if (error) throw new Error(error.message);
       return data;
+    },
+
+    async updateMerchantProduct(productId, merchantId, patch) {
+      const session = await authed();
+      if (!session) throw new Error('Sign in before managing products.');
+      const { data: merchant, error: merchantError } = await sb
+        .from('merchants').select('id, owner_id, approved').eq('id', merchantId).maybeSingle();
+      if (merchantError) throw new Error(merchantError.message);
+      if (!merchant || merchant.owner_id !== session.user.id || !merchant.approved) {
+        throw new Error('You do not have permission to manage products for this store.');
+      }
+      const safePatch: Record<string, unknown> = {};
+      if (patch.title !== undefined) {
+        const title = patch.title.trim();
+        if (!title) throw new Error('Product title cannot be empty.');
+        safePatch.title = title;
+      }
+      if (patch.price !== undefined) {
+        if (!Number.isFinite(patch.price) || patch.price <= 0) throw new Error('Price must be greater than zero.');
+        safePatch.price = patch.price;
+      }
+      if (patch.in_stock !== undefined) safePatch.in_stock = patch.in_stock;
+      if (patch.stock_count !== undefined) {
+        if (patch.stock_count !== null && (!Number.isInteger(patch.stock_count) || patch.stock_count < 0)) {
+          throw new Error('Stock must be a non-negative whole number.');
+        }
+        safePatch.stock_count = patch.stock_count;
+      }
+      const { data, error } = await sb.from('products').update(safePatch)
+        .eq('id', productId).eq('merchant_id', merchantId).select().single();
+      if (error) throw new Error(error.message);
+      return data;
+    },
+
+    async deleteMerchantProduct(productId, merchantId) {
+      const session = await authed();
+      if (!session) throw new Error('Sign in before managing products.');
+      const { data: merchant, error: merchantError } = await sb
+        .from('merchants').select('id, owner_id, approved').eq('id', merchantId).maybeSingle();
+      if (merchantError) throw new Error(merchantError.message);
+      if (!merchant || merchant.owner_id !== session.user.id || !merchant.approved) {
+        throw new Error('You do not have permission to manage products for this store.');
+      }
+      const { error } = await sb.from('products').delete()
+        .eq('id', productId).eq('merchant_id', merchantId);
+      if (error) throw new Error(error.message);
     },
 
     async merchantStats(merchantId) {
@@ -835,6 +997,7 @@ async updatePassword(password) {
             history: req.history,
             universe: req.universe,
             audience: req.audience ?? 'women',
+            images: req.images ?? [],
           },
         },
       );

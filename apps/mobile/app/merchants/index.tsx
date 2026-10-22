@@ -9,6 +9,7 @@ import { useDataSource } from '../../src/data';
 import { useLocale } from '../../src/i18n';
 import { spacing } from '../../src/theme/tokens';
 import { useTheme } from '../../src/theme/ThemeProvider';
+import { useSession } from '../../src/store/session';
 
 export default function Merchants() {
   const source = useDataSource();
@@ -24,16 +25,23 @@ export default function Merchants() {
 
   const merchants = useQuery({ queryKey: ['merchants'], queryFn: () => source.listMerchants() });
 
+  const session = useSession((state) => state.session);
+
   const apply = useMutation({
     mutationFn: () => source.applyMerchant({ name, city, description: desc }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['merchants'] });
+    onSuccess: async () => {
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ['merchants'] }),
+        qc.invalidateQueries({ queryKey: ['owned-merchant'] }),
+      ]);
       toast.show('Application submitted for review');
       setApplying(false);
       setName('');
       setCity('');
       setDesc('');
+      router.push('/merchants/dashboard');
     },
+    onError: (error) => toast.show(error instanceof Error ? error.message : 'Could not submit the store application.'),
   });
 
   const approved = (merchants.data ?? []).filter((m) => m.approved);
@@ -45,10 +53,21 @@ export default function Merchants() {
 
       {applying ? (
         <Card style={{ padding: spacing.lg, marginBottom: spacing.lg }}>
-          <Input label="Store name" value={name} onChangeText={setName} />
-          <Input label="City" value={city} onChangeText={setCity} />
-          <Input label="Description" value={desc} onChangeText={setDesc} multiline numberOfLines={3} />
-          <Button label="Submit application" full loading={apply.isPending} disabled={!name.trim() || !city.trim()} onPress={() => apply.mutate()} />
+          {!session ? (
+            <Text variant="body" muted style={{ marginBottom: spacing.md }}>
+              Sign in first to register a store. Store applications are linked to your ATHR account.
+            </Text>
+          ) : null}
+          <Input label="Store name" value={name} onChangeText={setName} maxLength={100} />
+          <Input label="City" value={city} onChangeText={setCity} maxLength={80} />
+          <Input label="Description" value={desc} onChangeText={setDesc} multiline numberOfLines={3} maxLength={1000} />
+          <Button
+            label="Submit application"
+            full
+            loading={apply.isPending}
+            disabled={!session || !name.trim() || !city.trim() || apply.isPending}
+            onPress={() => apply.mutate()}
+          />
         </Card>
       ) : null}
 

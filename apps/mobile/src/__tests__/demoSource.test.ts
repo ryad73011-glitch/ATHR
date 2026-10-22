@@ -63,3 +63,38 @@ describe('demoSource studio', () => {
     expect(res.total_cost).toBeLessThanOrEqual(120000);
   });
 });
+
+describe('demoSource merchant reviews', () => {
+  it('requires an approved store and enforces one editable rating per user', async () => {
+    await demoSource.signIn('merchant-review-test@athr.demo', 'demo');
+    try {
+      const pendingStore = await demoSource.applyMerchant({
+        name: 'Review Test Pending Store',
+        city: 'Oran',
+        description: 'Test fixture',
+      });
+      await expect(demoSource.addMerchantReview(pendingStore.id, 5, 'Too early')).rejects.toThrow(
+        'Only approved stores can be rated.',
+      );
+
+      const approvedStores = await demoSource.listMerchants({ approvedOnly: true });
+      expect(approvedStores.length).toBeGreaterThan(0);
+      const store = approvedStores[0];
+      const created = await demoSource.addMerchantReview(store.id, 4, 'Good service');
+      expect(created.rating).toBe(4);
+      await expect(demoSource.addMerchantReview(store.id, 3, 'Duplicate')).rejects.toThrow(
+        'already rated this store',
+      );
+
+      const updated = await demoSource.updateMerchantReview(created.id, 5, 'Excellent');
+      expect(updated.rating).toBe(5);
+      expect(updated.comment).toBe('Excellent');
+      const reviews = await demoSource.listMerchantReviews(store.id);
+      expect(reviews.filter((review) => review.user_id === created.user_id)).toHaveLength(1);
+      expect((await demoSource.getMerchant(store.id))?.rating).toBe(5);
+    } finally {
+      await demoSource.signOut();
+    }
+  });
+});
+

@@ -304,7 +304,10 @@ const system = [
       })),
     });
 
+    // Bound provider latency so a slow upstream cannot hold an edge invocation
+    // indefinitely. The timeout is server-side and cannot be overridden by clients.
     const response = await fetch(OPENROUTER_URL, {
+      signal: AbortSignal.timeout(20_000),
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

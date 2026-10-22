@@ -66,7 +66,9 @@ Status key: `DONE` = completed with recorded evidence; `IN PROGRESS` = changes u
 - NOT VERIFIED: Migrations 0004–0006 have not been applied to any database; pgTAP, typecheck, and app compatibility are unverified. No production DB was changed.
 - PARTIAL: Read-only review of deployed SECURITY DEFINER function bodies and ACLs found intended public read/helper RPCs and identity checks on mutation RPCs; `similar_looks` row-limit hardening is staged. Leaked-password protection remains disabled.
 - PARTIAL: GitHub Actions run `39805420808` passed Typecheck, Unit tests, Export Android bundle, and Generate Android native project on a prior branch revision; Release APK build was still in progress at last check. The latest merchant insert payload and migration 0006 were added after that run, so current-head CI is not yet verified.
-- NOT VERIFIED: Release APK completion and real Android device flows.
+- FIX ADDED: Added explicit `PublicProfile` return types to the live Supabase public-profile methods to reduce implicit/inferred data typing risk.
+- FIX ADDED: Enabled push-triggered mobile CI for `audit/**` branches; the prior workflow only ran on push for `main`, `arena/**`, and `feat/**`.
+- NOT VERIFIED: This GitHub connector does not expose the latest push-triggered run status; TypeScript and unit tests have not yet been independently re-run after the newest commits. Release APK completion and real Android device flows remain unverified.
 - NOT VERIFIED: Real user retention, merchant participation, revenue, and willingness to pay.
 
 ## Next three actions

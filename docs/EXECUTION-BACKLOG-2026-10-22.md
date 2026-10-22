@@ -4,7 +4,7 @@ Status key: `DONE` = completed with recorded evidence; `IN PROGRESS` = changes u
 
 ## Track A — Security and data integrity (P0)
 
-- [ ] A1. Inspect effective table grants and policies for profiles and merchants; record exact current access.
+- [x] A1. Inspected live effective table grants for profiles and merchants. Confirmed authenticated has table-level INSERT/UPDATE/DELETE on profiles and INSERT/UPDATE/DELETE on merchants; anon and authenticated have SELECT. Column-level privileges include sensitive fields. (Read-only query; no changes to live DB.)
   - Acceptance: grants for anon/authenticated/PUBLIC are documented; no assumption based on RLS alone.
 - [ ] A2. (IMPLEMENTED IN BRANCH; VALIDATION PENDING) Prevent users from changing their own privilege-bearing profile columns (`role`, `premium`, `verified`).
   - Acceptance: authenticated users can edit only ordinary profile fields; privileged columns cannot be updated through direct PostgREST writes.
@@ -12,7 +12,7 @@ Status key: `DONE` = completed with recorded evidence; `IN PROGRESS` = changes u
   - Acceptance: merchant owners can edit storefront fields only; `approved`, `verified`, `plan`, `rating`, `review_count`, `commission_rate`, and `product_count` are server/admin controlled.
 - [ ] A4. Review SECURITY DEFINER RPC grants and function bodies individually.
   - Acceptance: each RPC has documented intended caller roles, identity checks, bounded arguments, and least-privilege EXECUTE grants; public behavior is preserved where intended.
-- [ ] A5. Assess public profile reads for email exposure.
+- [x] A5. Confirmed anonymous SELECT privilege includes the profiles table, and column-level SELECT includes `profiles.email`. Public profile email exposure is confirmed at the grants layer; safe projection/compatibility fix remains open.
   - Acceptance: prove effective anonymous/API visibility; implement a safe public profile projection without breaking existing clients.
 - [ ] A6. Enable leaked-password protection after confirming intended Auth settings.
   - Acceptance: setting enabled in the correct Supabase project and sign-in/reset flows verified. Requires authorized project setting change if not supported safely through code.
@@ -57,9 +57,11 @@ Status key: `DONE` = completed with recorded evidence; `IN PROGRESS` = changes u
 - DONE: Read `supabase/migrations/0001_schema.sql`, `0002_rls.sql`, `0003_rpc.sql`, and the current `ai-stylist` function.
 - DONE: Supabase Security Advisor reported SECURITY DEFINER execution warnings and leaked-password protection disabled on 2026-10-22.
 - DONE: Added proposed migration `supabase/migrations/0004_privilege_field_protection.sql` on the audit branch; it limits profile and merchant writes to ordinary fields and leaves privileged fields to trusted workflows.
-- DONE: Added 12 pgTAP grant regression assertions in `supabase/tests/0004_privilege_field_protection.test.sql`; not yet executed against a database.
+- DONE: Added 16 pgTAP grant regression assertions in `supabase/tests/0004_privilege_field_protection.test.sql`; not yet executed against a database.
+- DONE: Read-only live grant query confirmed the existing privilege exposure: authenticated has table-level INSERT/UPDATE/DELETE on `profiles` and `merchants`; anonymous and authenticated roles have SELECT, including `profiles.email`.
+- DONE: Updated proposed migration to revoke direct profile insert/delete and merchant delete, and explicitly revoke sensitive/immutable column writes.
 - NOT VERIFIED: Migration application, grants on the deployed project, and compatibility with every existing client mutation remain unverified.
-- NOT VERIFIED: Actual effective grants and live deployed function parity have not yet been inspected.
+- PARTIAL: Effective table grants were inspected; deployed function parity and all inherited/default grants still require deeper review.
 - NOT VERIFIED: Current CI status, release APK, and real Android device flows have not yet been rerun.
 - NOT VERIFIED: Real user retention, merchant participation, revenue, and willingness to pay.
 

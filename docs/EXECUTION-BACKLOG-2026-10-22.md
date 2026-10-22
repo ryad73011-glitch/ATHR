@@ -6,9 +6,9 @@ Status key: `DONE` = completed with recorded evidence; `IN PROGRESS` = changes u
 
 - [ ] A1. Inspect effective table grants and policies for profiles and merchants; record exact current access.
   - Acceptance: grants for anon/authenticated/PUBLIC are documented; no assumption based on RLS alone.
-- [ ] A2. Prevent users from changing their own privilege-bearing profile columns (`role`, `premium`, `verified`).
+- [ ] A2. (IMPLEMENTED IN BRANCH; VALIDATION PENDING) Prevent users from changing their own privilege-bearing profile columns (`role`, `premium`, `verified`).
   - Acceptance: authenticated users can edit only ordinary profile fields; privileged columns cannot be updated through direct PostgREST writes.
-- [ ] A3. Prevent merchant owners from self-approving or self-assigning paid plans.
+- [ ] A3. (IMPLEMENTED IN BRANCH; VALIDATION PENDING) Prevent merchant owners from self-approving or self-assigning paid plans.
   - Acceptance: merchant owners can edit storefront fields only; `approved`, `verified`, `plan`, `rating`, `review_count`, `commission_rate`, and `product_count` are server/admin controlled.
 - [ ] A4. Review SECURITY DEFINER RPC grants and function bodies individually.
   - Acceptance: each RPC has documented intended caller roles, identity checks, bounded arguments, and least-privilege EXECUTE grants; public behavior is preserved where intended.
@@ -16,7 +16,7 @@ Status key: `DONE` = completed with recorded evidence; `IN PROGRESS` = changes u
   - Acceptance: prove effective anonymous/API visibility; implement a safe public profile projection without breaking existing clients.
 - [ ] A6. Enable leaked-password protection after confirming intended Auth settings.
   - Acceptance: setting enabled in the correct Supabase project and sign-in/reset flows verified. Requires authorized project setting change if not supported safely through code.
-- [ ] A7. Add security regression tests for profile role escalation, merchant self-approval, cross-user writes, and RPC authorization.
+- [ ] A7. (TESTS WRITTEN; NOT RUN) Add security regression tests for profile role escalation, merchant self-approval, cross-user writes, and RPC authorization.
   - Acceptance: tests fail against the vulnerable behavior and pass against the fix.
 
 ## Track B — Reproducible build and code health (P1)
@@ -56,6 +56,9 @@ Status key: `DONE` = completed with recorded evidence; `IN PROGRESS` = changes u
 - DONE: Created branch `audit/security-2026-10-22` and committed `docs/AUDIT-2026-10-22.md`.
 - DONE: Read `supabase/migrations/0001_schema.sql`, `0002_rls.sql`, `0003_rpc.sql`, and the current `ai-stylist` function.
 - DONE: Supabase Security Advisor reported SECURITY DEFINER execution warnings and leaked-password protection disabled on 2026-10-22.
+- DONE: Added proposed migration `supabase/migrations/0004_privilege_field_protection.sql` on the audit branch; it limits profile and merchant writes to ordinary fields and leaves privileged fields to trusted workflows.
+- DONE: Added 12 pgTAP grant regression assertions in `supabase/tests/0004_privilege_field_protection.test.sql`; not yet executed against a database.
+- NOT VERIFIED: Migration application, grants on the deployed project, and compatibility with every existing client mutation remain unverified.
 - NOT VERIFIED: Actual effective grants and live deployed function parity have not yet been inspected.
 - NOT VERIFIED: Current CI status, release APK, and real Android device flows have not yet been rerun.
 - NOT VERIFIED: Real user retention, merchant participation, revenue, and willingness to pay.

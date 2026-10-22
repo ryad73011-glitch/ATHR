@@ -409,9 +409,18 @@ async updatePassword(password) {
     },
 
     async applyMerchant(input) {
+      // Send only owner-editable storefront fields. The database trigger supplies
+      // owner_id/slug and rejects any attempt to set approval, plan, or rating fields.
       const { data, error } = await sb
         .from('merchants')
-        .insert({ ...input, approved: false })
+        .insert({
+          name: input.name,
+          city: input.city,
+          description: input.description ?? null,
+          logo_url: input.logo_url ?? null,
+          cover_url: input.cover_url ?? null,
+          country: input.country ?? 'DZ',
+        })
         .select()
         .single();
 

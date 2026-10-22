@@ -12,8 +12,8 @@ Status key: `DONE` = completed with recorded evidence; `IN PROGRESS` = changes u
   - Acceptance: merchant owners can edit storefront fields only; `approved`, `verified`, `plan`, `rating`, `review_count`, `commission_rate`, and `product_count` are server/admin controlled.
 - [ ] A4. Reviewed current SECURITY DEFINER functions and grants read-only. Public/authenticated mutation RPCs reviewed so far include identity checks; `similar_looks` had an unbounded row limit, now capped to 12 in branch migration 0006. Remaining acceptance is tests and exact caller-role verification.
   - Acceptance: each RPC has documented intended caller roles, identity checks, bounded arguments, and least-privilege EXECUTE grants; public behavior is preserved where intended.
-- [x] A5. Confirmed anonymous SELECT privilege includes the profiles table, and column-level SELECT includes `profiles.email`. Public profile email exposure is confirmed at the grants layer; safe projection/compatibility fix remains open.
-  - Acceptance: prove effective anonymous/API visibility; implement a safe public profile projection without breaking existing clients.
+- [ ] A5. (MITIGATION IMPLEMENTED IN BRANCH; VALIDATION PENDING) Confirmed anonymous SELECT privilege includes the profiles table and `profiles.email`. Added migration `0005_public_profile_email_isolation.sql` and switched community discovery to the safe `public_profiles` projection.
+  - Acceptance: run isolated DB tests for anonymous public projection, authenticated self-profile reads, admin user listing, and community discovery.
 - [ ] A6. Enable leaked-password protection after confirming intended Auth settings.
   - Acceptance: setting enabled in the correct Supabase project and sign-in/reset flows verified. Requires authorized project setting change if not supported safely through code.
 - [ ] A7. (TESTS WRITTEN; NOT RUN) Three pgTAP files now contain 23 assertions covering privilege-field grants, public email isolation, and the bounded similar-looks RPC. Cross-user mutation behavior and full trigger semantics still need executable regression tests.
@@ -65,7 +65,8 @@ Status key: `DONE` = completed with recorded evidence; `IN PROGRESS` = changes u
 - DONE: Updated proposed migration to revoke direct profile insert/delete and merchant delete, and explicitly revoke sensitive/immutable column writes.
 - NOT VERIFIED: Migrations 0004–0006 have not been applied to any database; pgTAP, typecheck, and app compatibility are unverified. No production DB was changed.
 - PARTIAL: Read-only review of deployed SECURITY DEFINER function bodies and ACLs found intended public read/helper RPCs and identity checks on mutation RPCs; `similar_looks` row-limit hardening is staged. Leaked-password protection remains disabled.
-- NOT VERIFIED: Current CI status, release APK, and real Android device flows have not yet been rerun.
+- PARTIAL: GitHub Actions run `39805420808` passed Typecheck, Unit tests, Export Android bundle, and Generate Android native project on a prior branch revision; Release APK build was still in progress at last check. The latest merchant insert payload and migration 0006 were added after that run, so current-head CI is not yet verified.
+- NOT VERIFIED: Release APK completion and real Android device flows.
 - NOT VERIFIED: Real user retention, merchant participation, revenue, and willingness to pay.
 
 ## Next three actions

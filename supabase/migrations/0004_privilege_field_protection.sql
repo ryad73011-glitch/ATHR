@@ -6,7 +6,7 @@
 
 -- Profiles: clients may edit ordinary profile fields, never role/entitlement/verification.
 revoke update on table public.profiles from public, anon, authenticated;
-revoke update (role, premium, verified, email, followers, following, created_at)
+revoke update (id, role, premium, verified, email, followers, following, created_at)
   on table public.profiles from public, anon, authenticated;
 grant update (
   handle,
@@ -22,10 +22,10 @@ grant update (
 -- Approval, verification, plan, ratings, commission, and product_count remain controlled
 -- by trusted server/admin workflows. Revoke broad insert so sensitive fields cannot be
 -- set during merchant creation; RLS still verifies owner_id = auth.uid().
-revoke insert, update on table public.merchants from public, anon, authenticated;
+revoke insert, update, delete on table public.merchants from public, anon, authenticated;
 revoke insert (approved, verified, plan, rating, review_count, commission_rate, product_count)
   on table public.merchants from public, anon, authenticated;
-revoke update (owner_id, approved, verified, plan, rating, review_count, commission_rate, product_count, affiliate_network, created_at)
+revoke update (id, owner_id, approved, verified, plan, rating, review_count, commission_rate, product_count, affiliate_network, created_at)
   on table public.merchants from public, anon, authenticated;
 grant insert (
   owner_id,

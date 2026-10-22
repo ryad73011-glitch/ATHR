@@ -689,9 +689,20 @@ async updatePassword(password) {
       return (data ?? []) as Look[];
     },
 
+    async listPublicProfiles() {
+      const { data, error } = await sb
+        .from('public_profiles')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(100);
+
+      if (error) throw new Error(error.message);
+      return (data ?? []) as import('./types').PublicProfile[];
+    },
+
     async getProfileByHandle(handle) {
       const { data, error } = await sb
-        .from('profiles')
+        .from('public_profiles')
         .select('*')
         .eq('handle', handle)
         .maybeSingle();

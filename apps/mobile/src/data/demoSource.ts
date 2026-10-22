@@ -649,6 +649,11 @@ export const demoSource: DataSource = {
     return sortLooks(allLooks(), 'trending').slice(0, limit);
   },
 
+  async listPublicProfiles() {
+    await load();
+    return demoUsers;
+  },
+
   async getProfileByHandle(handle) {
     await load();
     return demoUsers.find((u) => u.handle === handle) ?? null;

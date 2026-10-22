@@ -17,6 +17,7 @@ Paged,
 Product,
 ProductFilter,
 Profile,
+PublicProfile,
 Report,
 StudioRequest,
 StudioResult,
@@ -137,7 +138,8 @@ toggleLookInCollection(collectionId: string, lookId: string): Promise<boolean>;
 
 // --- community ------------------------------------------------------------
 listFeed(limit?: number): Promise<Look[]>;
-getProfileByHandle(handle: string): Promise<Profile | null>;
+listPublicProfiles(): Promise<PublicProfile[]>;
+getProfileByHandle(handle: string): Promise<PublicProfile | null>;
 toggleFollow(userId: string): Promise<boolean>;
 listFollows(): Promise<string[]>;
 submitReport(

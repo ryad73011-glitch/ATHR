@@ -227,6 +227,25 @@ Deno.serve(async (req: Request) => {
     }
   }
 
+  // Enforce atomic server-side quotas before reading the catalogue or calling the provider.
+  // The RPC is executable only by service_role; user identity comes from auth.getUser(token).
+  const { data: allowed, error: rateLimitError } = await supabase.rpc(
+    'consume_ai_request',
+    { p_user_id: userId },
+  );
+
+  if (rateLimitError) {
+    console.error('AI rate-limit check failed');
+    return json({ error: 'AI service temporarily unavailable' }, 503);
+  }
+
+  if (allowed !== true) {
+    return json(
+      { error: 'AI request limit reached. Please try again later.' },
+      429,
+    );
+  }
+
   if (!apiKey) {
     await logUsage('fallback');
 
@@ -304,7 +323,10 @@ const system = [
       })),
     });
 
+    // Bound provider latency so a slow upstream cannot hold an edge invocation
+    // indefinitely. The timeout is server-side and cannot be overridden by clients.
     const response = await fetch(OPENROUTER_URL, {
+      signal: AbortSignal.timeout(20_000),
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

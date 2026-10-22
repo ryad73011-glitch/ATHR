@@ -19,7 +19,7 @@ export default function Community() {
   const session = useSession((s) => s.session);
 
   const feed = useQuery({ queryKey: ['feed'], queryFn: () => source.listFeed(20) });
-  const users = useQuery({ queryKey: ['users'], queryFn: () => source.adminListUsers() });
+  const users = useQuery({ queryKey: ['users'], queryFn: () => source.listPublicProfiles() });
   const follows = useQuery({ queryKey: ['follows'], queryFn: () => source.listFollows() });
 
   const suggested = (users.data ?? []).filter((u) => u.id !== session?.user_id).slice(0, 5);

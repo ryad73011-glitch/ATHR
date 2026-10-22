@@ -33,7 +33,9 @@ export const useSession = create<SessionState>((set, get) => ({
         set({ status: 'anon', session: null, profile: null, prefs: null, contactDetails: null });
       }
     } catch {
-      set({ status: 'anon' });
+      // Never leave a stale authenticated identity or private data in memory
+      // when session restoration or any required account query fails.
+      set({ status: 'anon', session: null, profile: null, prefs: null, contactDetails: null });
     }
   },
 
@@ -50,8 +52,13 @@ export const useSession = create<SessionState>((set, get) => ({
   },
 
   async signOut(source) {
-    await source.signOut();
-    set({ status: 'anon', session: null, profile: null, prefs: null, contactDetails: null });
+    try {
+      await source.signOut();
+    } finally {
+      // Clear private client state even if the network sign-out request fails.
+      // The next session initialization must revalidate the server session.
+      set({ status: 'anon', session: null, profile: null, prefs: null, contactDetails: null });
+    }
   },
 
   async refresh(source) {

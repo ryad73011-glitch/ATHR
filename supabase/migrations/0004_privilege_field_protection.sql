@@ -5,7 +5,7 @@
 -- not granted these client-facing privileges by this migration.
 
 -- Profiles: clients may edit ordinary profile fields, never role/entitlement/verification.
-revoke update on table public.profiles from public, anon, authenticated;
+revoke insert, update, delete on table public.profiles from public, anon, authenticated;
 revoke update (id, role, premium, verified, email, followers, following, created_at)
   on table public.profiles from public, anon, authenticated;
 grant update (

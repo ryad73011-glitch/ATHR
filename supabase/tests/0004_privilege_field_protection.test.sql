@@ -1,7 +1,7 @@
 -- pgTAP regression checks for 0004_privilege_field_protection.sql.
 -- Run only against an isolated Supabase test database after applying migrations.
 begin;
-select plan(15);
+select plan(16);
 
 select ok(
   not has_table_privilege('authenticated', 'public.profiles', 'INSERT'),

@@ -26,7 +26,7 @@ import type {
   StudioResult,
   WasmChatRequest,
 } from './types';
-import { demoProducts } from './demo/seed';
+
 
 export interface SupabaseEnv {
   url: string;
@@ -849,13 +849,27 @@ async updatePassword(password) {
 
         throw new Error('Empty AI response');
       } catch (e) {
-        const fallback = buildOutfit(demoProducts, req);
+        // In live mode, never substitute demo catalogue items for real products.
+        // If the live catalogue is unavailable, return an empty, honest fallback.
+        const { data: liveProducts, error: catalogueError } = await sb
+          .from('products')
+          .select('*')
+          .eq('in_stock', true)
+          .limit(60);
+
+        const fallback = buildOutfit(
+          catalogueError ? [] : ((liveProducts ?? []) as Product[]),
+          req,
+        );
 
         return {
           ...fallback,
           engine: 'local-engine',
-          degraded_reason:
-            e instanceof Error ? e.message : 'AI unavailable',
+          degraded_reason: catalogueError
+            ? 'AI and live catalogue unavailable'
+            : e instanceof Error
+              ? e.message
+              : 'AI unavailable',
         };
       }
     },

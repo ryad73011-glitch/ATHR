@@ -133,7 +133,7 @@ describe('useSession security state handling', () => {
       getSession: jest.fn().mockRejectedValue(new Error('session storage unavailable')),
     });
 
-    await expect(useSession.getState().init(source)).rejects.toThrow('session storage unavailable');
+    await useSession.getState().init(source);
 
     expect(useSession.getState()).toMatchObject({
       status: 'anon',

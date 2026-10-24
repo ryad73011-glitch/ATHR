@@ -53,9 +53,9 @@ export const useSession = create<SessionState>((set, get) => ({
       set({ status: 'authed', session, profile: null, prefs: null, contactDetails: null });
       const accountData = await loadAccountData(source, session.user_id);
       set({ status: 'authed', session, ...accountData });
-    } catch (error) {
+    } catch {
+      // Keep app startup deterministic; callers can retry initialization later.
       set({ status: 'anon', ...emptyAccountState });
-      throw error;
     }
   },
 

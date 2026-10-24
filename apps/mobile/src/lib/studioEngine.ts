@@ -196,11 +196,13 @@ export function buildOutfit(products: Product[], req: StudioRequest): StudioResu
   }
   reasoning.push(`Total ${spend.toLocaleString()} ${req.currency}, leaving ${(req.budget - spend).toLocaleString()} unspent.`);
 
-  const assistantText = [
-    `Here is a ${req.universes.join(' and ')} direction for your ${req.occasion} within budget.`,
-    ...chosen.map((c) => `${c.product.title} (${c.product.brand}) — ${c.product.price.toLocaleString()} ${c.product.currency}`),
-    `Everything stays in your palette, and the total lands ${spend > req.budget ? 'over' : 'under'} budget at ${spend.toLocaleString()} ${req.currency}.`,
-  ].join('\n');
+  const assistantText = chosen.length
+    ? [
+        `Here is a ${req.universes.join(' and ')} direction for your ${req.occasion} within budget.`,
+        ...chosen.map((c) => `${c.product.title} (${c.product.brand}) — ${c.product.price.toLocaleString()} ${c.product.currency}`),
+        `Selected items total ${spend.toLocaleString()} ${req.currency}, within your budget.`,
+      ].join('\n')
+    : 'I could not build a product-based outfit from the available catalogue. Try again or adjust your budget, occasion, or style preferences.';
 
   const message: StudioMessage = {
     id: `msg_${Date.now()}`,

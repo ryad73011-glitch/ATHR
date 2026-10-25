@@ -95,6 +95,8 @@ Deno.serve(async (req: Request) => {
     return json({ error: 'Invalid or expired session' }, 401);
   }
 
+  const userId = auth.user.id;
+
   let body: Record<string, unknown>;
 
   try {
@@ -204,7 +206,7 @@ Deno.serve(async (req: Request) => {
         status,
       })
       .eq('id', usageId)
-      .eq('user_id', auth.user.id);
+      .eq('user_id', userId);
 
     if (error) console.error('WASM usage logging failed');
   }
@@ -226,7 +228,7 @@ Deno.serve(async (req: Request) => {
 
     const { data: reservedUsageId, error: reservationError } =
       await supabase.rpc('reserve_ai_usage', {
-        p_user_id: auth.user.id,
+        p_user_id: userId,
         p_feature: 'wasm-chat',
       });
 

@@ -14,6 +14,7 @@ Real PostgreSQL schema in `supabase/migrations/`. Mirrors `apps/mobile/src/data/
   `vote_in_battle`, `battle_result`, `toggle_save`, `set_like`, `toggle_follow`,
   `toggle_look_in_collection`, `similar_looks`, `merchant_stats`, `admin_overview`,
   plus the `on_auth_user_created` trigger that provisions profile + preferences on signup.
+* `0004_ai_usage_guardrails.sql` — atomic AI usage reservations, per-user/project rolling 24-hour caps, usage telemetry fields, and removal of direct client writes to `ai_usage`. Apply this migration before deploying the updated `ai-stylist` or `wasm-chat` Edge Functions.
 
 ## Design notes
 * `looks.items` is a jsonb snapshot so a look never lies if a product is edited later; the

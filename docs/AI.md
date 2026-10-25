@@ -7,7 +7,7 @@ ATHR has two server-side AI routes and a deterministic local outfit engine.
 * Both Edge Functions use the OpenRouter `openrouter/free` route only.
 * The functions do not automatically switch to a paid model.
 * The OpenRouter API key is read only from the server-side `OPENROUTER_API_KEY` secret. Never place it in mobile app configuration or logs.
-* Migration `0004_ai_usage_guardrails.sql` adds an atomic reservation RPC. It limits valid AI requests to 20 per user and 200 per project in a rolling 24-hour window, shared by `ai-stylist` and `wasm-chat`.
+* Migration `20261025170000_ai_usage_guardrails.sql` adds an atomic reservation RPC. It limits valid AI requests to 20 per user and 200 per project in a rolling 24-hour window, shared by `ai-stylist` and `wasm-chat`.
 * The reservation is created before the external model request. Only reservations marked as server-created count toward quotas; legacy rows are ignored because older client-side inserts could not be trusted. Quota accounting starts with reservations created after the migration. If the quota service is unavailable, the Edge Function fails closed instead of calling the provider without a reservation.
 * The migration removes direct client insert/update/delete permissions on `ai_usage`. Edge Functions use the service role only after validating the user's JWT.
 * Usage records track feature, model, provider, status, latency, and token counts returned by the provider. The raw provider-reported cost value is stored only when present and valid; otherwise it remains null and is not converted to USD or DZD. Do not treat product totals as AI cost.

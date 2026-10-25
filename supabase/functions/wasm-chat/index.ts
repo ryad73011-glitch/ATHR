@@ -185,6 +185,30 @@ Deno.serve(async (req: Request) => {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
+  let usageId: string | null = null;
+  let started = Date.now();
+  let promptTokens = 0;
+  let completionTokens = 0;
+  let providerCostUsd: number | null = null;
+
+  async function logUsage(status: 'ok' | 'error') {
+    if (!usageId) return;
+
+    const { error } = await supabase
+      .from('ai_usage')
+      .update({
+        prompt_tokens: promptTokens,
+        completion_tokens: completionTokens,
+        provider_cost_usd: providerCostUsd,
+        latency_ms: Date.now() - started,
+        status,
+      })
+      .eq('id', usageId)
+      .eq('user_id', auth.user.id);
+
+    if (error) console.error('WASM usage logging failed');
+  }
+
   try {
     const { data: products, error: productError } = await supabase
       .from('products')
@@ -199,6 +223,27 @@ Deno.serve(async (req: Request) => {
     }
 
     const catalogue = products ?? [];
+
+    const { data: reservedUsageId, error: reservationError } =
+      await supabase.rpc('reserve_ai_usage', {
+        p_user_id: auth.user.id,
+        p_feature: 'wasm-chat',
+      });
+
+    if (reservationError) {
+      console.error('WASM usage reservation failed');
+      return json({ error: 'AI usage controls are unavailable' }, 503);
+    }
+
+    if (typeof reservedUsageId !== 'string' || reservedUsageId.length === 0) {
+      return json(
+        { error: 'AI usage limit reached. Please try again later.' },
+        429,
+      );
+    }
+
+    usageId = reservedUsageId;
+    started = Date.now();
 
     const system = [
       'You are WASM, ATHR personal AI assistant.',
@@ -261,13 +306,35 @@ Deno.serve(async (req: Request) => {
 
     if (!response.ok) {
       console.error(`OpenRouter returned HTTP ${response.status}`);
+      await logUsage('error');
       return json({ error: 'OpenRouter request failed; no paid fallback was used' }, 502);
     }
 
     const result = await response.json();
+    const usage = result?.usage;
+    promptTokens =
+      typeof usage?.prompt_tokens === 'number' &&
+      Number.isFinite(usage.prompt_tokens) &&
+      usage.prompt_tokens >= 0
+        ? Math.floor(usage.prompt_tokens)
+        : 0;
+    completionTokens =
+      typeof usage?.completion_tokens === 'number' &&
+      Number.isFinite(usage.completion_tokens) &&
+      usage.completion_tokens >= 0
+        ? Math.floor(usage.completion_tokens)
+        : 0;
+    providerCostUsd =
+      typeof usage?.cost === 'number' &&
+      Number.isFinite(usage.cost) &&
+      usage.cost >= 0
+        ? usage.cost
+        : null;
+
     const content = result.choices?.[0]?.message?.content;
 
     if (typeof content !== 'string' || !content.trim()) {
+      await logUsage('error');
       return json({ error: 'The AI returned an empty response' }, 502);
     }
 
@@ -313,6 +380,8 @@ Deno.serve(async (req: Request) => {
 
     const now = new Date().toISOString();
 
+    await logUsage('ok');
+
     return json({
       configured: true,
       result: {
@@ -335,6 +404,7 @@ Deno.serve(async (req: Request) => {
       },
     });
   } catch {
+    await logUsage('error');
     console.error('WASM chat processing failed');
     return json({ error: 'WASM could not process this message' }, 502);
   }

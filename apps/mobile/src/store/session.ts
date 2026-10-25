@@ -16,6 +16,9 @@ interface SessionState {
   refresh: (source: DataSource) => Promise<void>;
 }
 
+const clearPrivateSession = (set: (state: Partial<SessionState>) => void) =>
+  set({ status: 'anon', session: null, profile: null, prefs: null, contactDetails: null });
+
 export const useSession = create<SessionState>((set, get) => ({
   status: 'boot',
   session: null,
@@ -30,34 +33,58 @@ export const useSession = create<SessionState>((set, get) => ({
         const [profile, prefs, contactDetails] = await Promise.all([source.getProfile(session.user_id), source.getPreferences(session.user_id), source.getAccountContactDetails(session.user_id)]);
         set({ status: 'authed', session, profile, prefs, contactDetails });
       } else {
-        set({ status: 'anon', session: null, profile: null, prefs: null, contactDetails: null });
+        clearPrivateSession(set);
       }
     } catch {
-      set({ status: 'anon' });
+      // Do not leave a stale identity or private account data in memory.
+      clearPrivateSession(set);
     }
   },
 
   async signIn(source, email, password) {
-    const session = await source.signIn(email, password);
-    const [profile, prefs, contactDetails] = await Promise.all([source.getProfile(session.user_id), source.getPreferences(session.user_id), source.getAccountContactDetails(session.user_id)]);
-    set({ status: 'authed', session, profile, prefs, contactDetails });
+    try {
+      const session = await source.signIn(email, password);
+      const [profile, prefs, contactDetails] = await Promise.all([source.getProfile(session.user_id), source.getPreferences(session.user_id), source.getAccountContactDetails(session.user_id)]);
+      set({ status: 'authed', session, profile, prefs, contactDetails });
+    } catch (error) {
+      // Authentication can succeed before a required account query fails.
+      // Clear any previous user's private state and propagate the original error.
+      clearPrivateSession(set);
+      throw error;
+    }
   },
 
   async signUp(source, input) {
-    const session = await source.signUp(input);
-    const [profile, prefs, contactDetails] = await Promise.all([source.getProfile(session.user_id), source.getPreferences(session.user_id), source.getAccountContactDetails(session.user_id)]);
-    set({ status: 'authed', session, profile, prefs, contactDetails });
+    try {
+      const session = await source.signUp(input);
+      const [profile, prefs, contactDetails] = await Promise.all([source.getProfile(session.user_id), source.getPreferences(session.user_id), source.getAccountContactDetails(session.user_id)]);
+      set({ status: 'authed', session, profile, prefs, contactDetails });
+    } catch (error) {
+      clearPrivateSession(set);
+      throw error;
+    }
   },
 
   async signOut(source) {
-    await source.signOut();
-    set({ status: 'anon', session: null, profile: null, prefs: null, contactDetails: null });
+    try {
+      await source.signOut();
+    } finally {
+      // Clear private client state even if the network sign-out request fails.
+      // The next session initialization must revalidate the server session.
+      clearPrivateSession(set);
+    }
   },
 
   async refresh(source) {
     const { session } = get();
     if (!session) return;
-    const [profile, prefs, contactDetails] = await Promise.all([source.getProfile(session.user_id), source.getPreferences(session.user_id), source.getAccountContactDetails(session.user_id)]);
-    set({ profile, prefs, contactDetails });
+    try {
+      const [profile, prefs, contactDetails] = await Promise.all([source.getProfile(session.user_id), source.getPreferences(session.user_id), source.getAccountContactDetails(session.user_id)]);
+      set({ profile, prefs, contactDetails });
+    } catch (error) {
+      // A failed refresh must not leave potentially stale private data visible.
+      clearPrivateSession(set);
+      throw error;
+    }
   },
 }));

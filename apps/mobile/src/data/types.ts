@@ -38,6 +38,21 @@ export type Season = 'spring' | 'summer' | 'autumn' | 'winter' | 'all';
 
 export type Role = 'user' | 'merchant' | 'editor' | 'moderator' | 'admin';
 
+export interface PublicProfile {
+  id: ID;
+  handle: string;
+  display_name: string;
+  avatar_url: string | null;
+  bio: string | null;
+  city: string | null;
+  universe_pref: Universe | null;
+  preferred_locale: 'en' | 'ar' | 'fr';
+  followers: number;
+  following: number;
+  verified: boolean;
+  created_at: ISODate;
+}
+
 export interface Profile {
   id: ID;
   email: string;

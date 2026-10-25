@@ -5,7 +5,7 @@ alter table public.ai_usage
   add column if not exists feature text not null default 'ai-stylist';
 
 alter table public.ai_usage
-  add column if not exists provider_cost_usd numeric(12,8);
+  add column if not exists provider_cost numeric(12,8);
 
 -- Existing rows may have been inserted by clients before this migration.
 -- Only reservations created by the trusted RPC count against future quotas.
@@ -31,7 +31,7 @@ alter table public.ai_usage
 
 alter table public.ai_usage
   add constraint ai_usage_provider_cost_nonnegative
-  check (provider_cost_usd is null or provider_cost_usd >= 0);
+  check (provider_cost is null or provider_cost >= 0);
 
 create index if not exists ai_usage_user_created_at_idx
   on public.ai_usage (user_id, created_at desc);

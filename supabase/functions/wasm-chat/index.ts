@@ -20,6 +20,20 @@ const json = (body: unknown, status = 200) =>
 const MODEL = 'openrouter/free';
 const OPENROUTER_URL =
   'https://openrouter.ai/api/v1/chat/completions';
+async function fetchWithTimeout(
+  url: string,
+  init: RequestInit,
+  timeoutMs = 30_000,
+): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
 
 type ChatMessage = {
   role: 'user' | 'assistant';
@@ -277,7 +291,7 @@ Deno.serve(async (req: Request) => {
         ]
       : message.trim();
 
-    const response = await fetch(OPENROUTER_URL, {
+    const response = await fetchWithTimeout(OPENROUTER_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

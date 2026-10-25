@@ -1,13 +1,13 @@
 # ATHR · AI features
 
-ATHR has two server-side AI routes and a deterministic local outfit engine.
+ATHR has three server-side AI routes and a deterministic local outfit engine.
 
 ## Cloud providers and spend safety
 
-* Both Edge Functions use the OpenRouter `openrouter/free` route only.
+* All three Edge Functions use the OpenRouter `openrouter/free` route only.
 * The functions do not automatically switch to a paid model.
 * The OpenRouter API key is read only from the server-side `OPENROUTER_API_KEY` secret. Never place it in mobile app configuration or logs.
-* Migration `20261025170000_ai_usage_guardrails.sql` adds an atomic reservation RPC. It limits valid AI requests to 20 per user and 200 per project in a rolling 24-hour window, shared by `ai-stylist` and `wasm-chat`.
+* Migration `20261025170000_ai_usage_guardrails.sql` adds an atomic reservation RPC. It limits valid AI requests to 20 per user and 200 per project in a rolling 24-hour window, shared by `ai-stylist`, `wasm-chat`, and `classify-product-image`.
 * The reservation is created before the external model request. Only reservations marked as server-created count toward quotas; legacy rows are ignored because older client-side inserts could not be trusted. Quota accounting starts with reservations created after the migration. If the quota service is unavailable, the Edge Function fails closed instead of calling the provider without a reservation.
 * The migration removes direct client insert/update/delete permissions on `ai_usage`. Edge Functions use the service role only after validating the user's JWT.
 * Usage records track feature, model, provider, status, latency, and token counts returned by the provider. The raw provider-reported cost value is stored only when present and valid; otherwise it remains null and is not converted to USD or DZD. Do not treat product totals as AI cost.
@@ -28,6 +28,14 @@ ATHR has two server-side AI routes and a deterministic local outfit engine.
 * Includes only in-stock catalogue products and their color/occasion metadata in context.
 * Revalidates suggested product IDs against the live catalogue.
 * Image understanding depends on the model selected by the free router; the function must not claim visual analysis if the provider/model did not process the image.
+
+## `classify-product-image`
+
+* Classifies product photos into a fixed category list, colour labels, CALM/CHAOS, and a confidence score.
+* Requires an authenticated user, accepts JPEG/PNG/WebP base64 data with a strict size limit, and marks uncertain classifications for manual review.
+* Uses the same atomic quota and server-side usage telemetry as the other AI routes.
+* Uses a 30-second request timeout and never automatically switches to a paid model.
+* The live deployment exists, but its source was missing from the repository before this draft branch. Reconcile the source and database migration on staging before any deployment.
 
 ## Local outfit engine
 

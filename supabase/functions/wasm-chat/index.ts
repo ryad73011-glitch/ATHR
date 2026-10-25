@@ -202,7 +202,7 @@ Deno.serve(async (req: Request) => {
   let started = Date.now();
   let promptTokens = 0;
   let completionTokens = 0;
-  let providerCostUsd: number | null = null;
+  let providerCost: number | null = null;
 
   async function logUsage(status: 'ok' | 'error') {
     if (!usageId) return;
@@ -212,7 +212,7 @@ Deno.serve(async (req: Request) => {
       .update({
         prompt_tokens: promptTokens,
         completion_tokens: completionTokens,
-        provider_cost: providerCostUsd,
+        provider_cost: providerCost,
         latency_ms: Date.now() - started,
         status,
       })
@@ -337,7 +337,7 @@ Deno.serve(async (req: Request) => {
       usage.completion_tokens >= 0
         ? Math.floor(usage.completion_tokens)
         : 0;
-    providerCostUsd =
+    providerCost =
       typeof usage?.cost === 'number' &&
       Number.isFinite(usage.cost) &&
       usage.cost >= 0

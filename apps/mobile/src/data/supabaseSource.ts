@@ -851,11 +851,19 @@ async updatePassword(password) {
       } catch (e) {
         // In live mode, never substitute demo catalogue items for real products.
         // If the live catalogue is unavailable, return an empty, honest fallback.
-        const { data: liveProducts, error: catalogueError } = await sb
+        let catalogueQuery = sb
           .from('products')
           .select('*')
           .eq('in_stock', true)
+          .eq('currency', req.currency)
           .limit(60);
+
+        if (req.universes.length > 0) {
+          catalogueQuery = catalogueQuery.in('universe', req.universes);
+        }
+
+        const { data: liveProducts, error: catalogueError } =
+          await catalogueQuery;
 
         const fallback = buildOutfit(
           catalogueError ? [] : ((liveProducts ?? []) as Product[]),

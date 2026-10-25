@@ -7,6 +7,11 @@ alter table public.ai_usage
 alter table public.ai_usage
   add column if not exists provider_cost_usd numeric(12,8);
 
+-- Existing rows may have been inserted by clients before this migration.
+-- Only reservations created by the trusted RPC count against future quotas.
+alter table public.ai_usage
+  add column if not exists server_reserved boolean not null default false;
+
 alter table public.ai_usage
   drop constraint if exists ai_usage_status_check;
 
@@ -60,7 +65,7 @@ begin
     raise exception 'user_id is required';
   end if;
 
-  if p_feature not in ('ai-stylist', 'wasm-chat') then
+  if p_feature is null or p_feature not in ('ai-stylist', 'wasm-chat') then
     raise exception 'unsupported AI feature';
   end if;
 
@@ -72,6 +77,7 @@ begin
     into v_user_count
     from public.ai_usage
     where user_id = p_user_id
+      and server_reserved
       and created_at >= now() - interval '24 hours';
 
   if v_user_count >= 20 then
@@ -81,7 +87,8 @@ begin
   select count(*)::integer
     into v_project_count
     from public.ai_usage
-    where created_at >= now() - interval '24 hours';
+    where server_reserved
+      and created_at >= now() - interval '24 hours';
 
   if v_project_count >= 200 then
     return null;
@@ -93,7 +100,8 @@ begin
     provider,
     latency_ms,
     status,
-    feature
+    feature,
+    server_reserved
   )
   values (
     p_user_id,
@@ -101,7 +109,8 @@ begin
     'openrouter',
     0,
     'pending',
-    p_feature
+    p_feature,
+    true
   )
   returning id into v_id;
 

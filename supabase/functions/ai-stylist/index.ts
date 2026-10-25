@@ -26,14 +26,11 @@ async function fetchWithTimeout(
   init: RequestInit,
   timeoutMs = 30_000,
 ): Promise<Response> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
-
-  try {
-    return await fetch(url, { ...init, signal: controller.signal });
-  } finally {
-    clearTimeout(timeout);
-  }
+  // Keep the abort signal active while the response body is being consumed too.
+  return fetch(url, {
+    ...init,
+    signal: AbortSignal.timeout(timeoutMs),
+  });
 }
 
 function parseModelJson(content: string): Record<string, unknown> {

@@ -187,14 +187,18 @@ export function buildOutfit(products: Product[], req: StudioRequest): StudioResu
   }
 
   const reasoning: string[] = [];
-  reasoning.push(`Built a ${req.universes.join(' + ')} look for "${req.occasion}" within ${Math.round(req.budget).toLocaleString()} ${req.currency}.`);
-  const paletteNote = req.palette.length ? ` Palette anchor: ${req.palette.join(', ')}.` : '';
-  reasoning.push(`Colour logic pairs neutrals with at most one accent.${paletteNote}`);
-  for (const c of chosen) {
-    const extras = c.reasons.length ? ` (${c.reasons.slice(0, 2).join(' ')})` : '';
-    reasoning.push(`• ${c.product.title} — ${c.product.brand}, ${c.product.price.toLocaleString()} ${c.product.currency}.${extras}`);
+  if (chosen.length > 0) {
+    reasoning.push(`Built a ${req.universes.join(' + ')} look for "${req.occasion}" within ${Math.round(req.budget).toLocaleString()} ${req.currency}.`);
+    const paletteNote = req.palette.length ? ` Palette anchor: ${req.palette.join(', ')}.` : '';
+    reasoning.push(`Colour logic pairs neutrals with at most one accent.${paletteNote}`);
+    for (const c of chosen) {
+      const extras = c.reasons.length ? ` (${c.reasons.slice(0, 2).join(' ')})` : '';
+      reasoning.push(`• ${c.product.title} — ${c.product.brand}, ${c.product.price.toLocaleString()} ${c.product.currency}.${extras}`);
+    }
+  } else {
+    reasoning.push(`No in-stock catalogue items could be selected for "${req.occasion}" within ${Math.round(req.budget).toLocaleString()} ${req.currency}.`);
   }
-  reasoning.push(`Total ${spend.toLocaleString()} ${req.currency}, leaving ${(req.budget - spend).toLocaleString()} unspent.`);
+  reasoning.push(`Selected items total ${spend.toLocaleString()} ${req.currency}, leaving ${(req.budget - spend).toLocaleString()} unspent.`);
 
   const assistantText = chosen.length
     ? [

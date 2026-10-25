@@ -206,20 +206,42 @@ Deno.serve(async (req: Request) => {
     },
   );
 
+  const { data: usageId, error: reservationError } = await supabase.rpc(
+    'reserve_ai_usage',
+    { p_user_id: userId, p_feature: 'ai-stylist' },
+  );
+
+  if (reservationError) {
+    console.error('AI usage reservation failed');
+    return json({ error: 'AI usage controls are unavailable' }, 503);
+  }
+
+  if (typeof usageId !== 'string' || usageId.length === 0) {
+    return json(
+      { error: 'AI usage limit reached. Please try again later.' },
+      429,
+    );
+  }
+
   const started = Date.now();
+  let promptTokens = 0;
+  let completionTokens = 0;
+  let providerCostUsd: number | null = null;
 
   async function logUsage(
     status: 'ok' | 'error' | 'fallback',
   ) {
     const { error } = await supabase
       .from('ai_usage')
-      .insert({
-        user_id: userId,
-        model: MODEL,
-        provider: PROVIDER,
+      .update({
+        prompt_tokens: promptTokens,
+        completion_tokens: completionTokens,
+        provider_cost_usd: providerCostUsd,
         latency_ms: Date.now() - started,
         status,
-      });
+      })
+      .eq('id', usageId)
+      .eq('user_id', userId);
 
     if (error) {
       // Never log API keys, authorization headers, or user tokens.
@@ -341,6 +363,26 @@ const system = [
     }
 
     const data = await response.json();
+
+    const usage = data?.usage;
+    promptTokens =
+      typeof usage?.prompt_tokens === 'number' &&
+      Number.isFinite(usage.prompt_tokens) &&
+      usage.prompt_tokens >= 0
+        ? Math.floor(usage.prompt_tokens)
+        : 0;
+    completionTokens =
+      typeof usage?.completion_tokens === 'number' &&
+      Number.isFinite(usage.completion_tokens) &&
+      usage.completion_tokens >= 0
+        ? Math.floor(usage.completion_tokens)
+        : 0;
+    providerCostUsd =
+      typeof usage?.cost === 'number' &&
+      Number.isFinite(usage.cost) &&
+      usage.cost >= 0
+        ? usage.cost
+        : null;
 
     const content = data.choices?.[0]?.message?.content;
 

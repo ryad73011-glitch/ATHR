@@ -12,7 +12,7 @@ ATHR has two server-side AI routes and a deterministic local outfit engine.
 * The migration removes direct client insert/update/delete permissions on `ai_usage`. Edge Functions use the service role only after validating the user's JWT.
 * Usage records track feature, model, provider, status, latency, and token counts returned by the provider. The raw provider-reported cost value is stored only when present and valid; otherwise it remains null and is not converted to USD or DZD. Do not treat product totals as AI cost.
 
-**Deployment order:** apply the database migration before deploying the updated Edge Functions. Do not deploy these function changes without the reservation RPC being present.
+**Deployment blocker:** migration `20261025170000_ai_usage_guardrails.sql` is a draft and has not been applied. The live project's timestamped migration history and production Edge Function source differ from the repository. Reconcile both on a staging copy first; do not run `supabase db push` or deploy these function files to production until the migration history, schema, and production-only behavior are aligned.
 
 ## `ai-stylist`
 

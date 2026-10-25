@@ -1,6 +1,16 @@
 import { useSession } from './session';
 import type { DataSource } from '../data';
 
+const expectPrivateStateCleared = () => {
+  expect(useSession.getState()).toMatchObject({
+    status: 'anon',
+    session: null,
+    profile: null,
+    prefs: null,
+    contactDetails: null,
+  });
+};
+
 describe('session private-state cleanup', () => {
   beforeEach(() => {
     useSession.setState({
@@ -22,13 +32,7 @@ describe('session private-state cleanup', () => {
 
     await useSession.getState().init(source);
 
-    expect(useSession.getState()).toMatchObject({
-      status: 'anon',
-      session: null,
-      profile: null,
-      prefs: null,
-      contactDetails: null,
-    });
+    expectPrivateStateCleared();
   });
 
   it('clears private data even when server sign-out fails', async () => {
@@ -38,12 +42,53 @@ describe('session private-state cleanup', () => {
 
     await expect(useSession.getState().signOut(source)).rejects.toThrow('network unavailable');
 
-    expect(useSession.getState()).toMatchObject({
-      status: 'anon',
-      session: null,
-      profile: null,
-      prefs: null,
-      contactDetails: null,
-    });
+    expectPrivateStateCleared();
+  });
+
+  it('clears stale private data if sign-in succeeds but account loading fails', async () => {
+    const source = {
+      signIn: jest.fn().mockResolvedValue({ user_id: 'user-b' }),
+      getProfile: jest.fn().mockRejectedValue(new Error('profile unavailable')),
+      getPreferences: jest.fn(),
+      getAccountContactDetails: jest.fn(),
+    } as unknown as DataSource;
+
+    await expect(useSession.getState().signIn(source, 'b@example.test', 'not-a-real-password'))
+      .rejects.toThrow('profile unavailable');
+
+    expectPrivateStateCleared();
+  });
+
+  it('clears stale private data if sign-up succeeds but account loading fails', async () => {
+    const source = {
+      signUp: jest.fn().mockResolvedValue({ user_id: 'user-b' }),
+      getProfile: jest.fn().mockResolvedValue({ id: 'user-b' }),
+      getPreferences: jest.fn().mockRejectedValue(new Error('preferences unavailable')),
+      getAccountContactDetails: jest.fn(),
+    } as unknown as DataSource;
+
+    await expect(useSession.getState().signUp(source, {
+      email: 'b@example.test',
+      password: 'not-a-real-password',
+      handle: 'user-b',
+      display_name: 'User B',
+      phone: '',
+      wilaya: '',
+      commune: '',
+    })).rejects.toThrow('preferences unavailable');
+
+    expectPrivateStateCleared();
+  });
+
+  it('clears private data and propagates refresh errors', async () => {
+    const source = {
+      getProfile: jest.fn().mockResolvedValue({ id: 'user-a' }),
+      getPreferences: jest.fn().mockRejectedValue(new Error('preferences unavailable')),
+      getAccountContactDetails: jest.fn(),
+    } as unknown as DataSource;
+
+    await expect(useSession.getState().refresh(source)).rejects.toThrow('preferences unavailable');
+
+    expectPrivateStateCleared();
   });
 });

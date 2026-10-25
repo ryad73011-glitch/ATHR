@@ -18,9 +18,13 @@ No env vars → demo mode. Everything works offline.
 cp .env.example .env
 # fill EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY
 supabase login && supabase link --project-ref YOUR_REF
-supabase db push                 # apply migrations
-supabase seed ... # or paste supabase/seed.sql into the SQL editor
+supabase migration list           # inspect local/remote history first
+# Do not run "supabase db push" against ATHR production until migration
+# history and schema drift have been reconciled and reviewed.
+supabase seed ... # only against a disposable/staging database
 ```
+
+**Production safety warning:** the connected ATHR database has timestamped migration versions that do not match the repository's legacy `0001_schema.sql`–`0003_rpc.sql` history. Reconcile this drift on a staging copy before applying any repository migration to production. The AI guardrail migration is a draft and has not been applied.
 
 ## 3. Edge function secrets
 

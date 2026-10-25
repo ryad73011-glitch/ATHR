@@ -263,7 +263,7 @@ Deno.serve(async (req: Request) => {
     let query = supabase
       .from('products')
       .select(
-        'id,title,brand,category,universe,price,currency,in_stock',
+        'id,title,brand,category,universe,price,currency,in_stock,colors,occasions',
       )
       .eq('in_stock', true)
       .eq('currency', currency)
@@ -323,6 +323,8 @@ const system = [
         universe: product.universe,
         price: product.price,
         currency: product.currency,
+        colors: product.colors,
+        occasions: product.occasions,
       })),
     });
 

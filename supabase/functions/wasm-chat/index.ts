@@ -215,7 +215,7 @@ Deno.serve(async (req: Request) => {
       .update({
         prompt_tokens: promptTokens,
         completion_tokens: completionTokens,
-        provider_cost_usd: providerCostUsd,
+        provider_cost: providerCostUsd,
         latency_ms: Date.now() - started,
         status,
       })

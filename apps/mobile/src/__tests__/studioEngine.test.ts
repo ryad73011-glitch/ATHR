@@ -65,5 +65,6 @@ describe('buildOutfit', () => {
     expect(empty.total_cost).toBe(0);
     expect(empty.messages[0].content).toContain('could not build a product-based outfit');
     expect(empty.messages[0].content).not.toContain('Everything stays in your palette');
+    expect(empty.reasoning[0]).toContain('No in-stock catalogue items could be selected');
   });
 });

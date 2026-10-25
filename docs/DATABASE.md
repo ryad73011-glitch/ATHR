@@ -3,6 +3,8 @@
 Real PostgreSQL schema in `supabase/migrations/`. Mirrors `apps/mobile/src/data/types.ts`.
 
 ## Migrations
+
+**Important:** the connected production project has timestamped migration versions that do not match the repository's legacy `0001`–`0003` filenames. Treat this list as repository history, not proof of production schema state. Reconcile migration history and schema on staging before applying changes to production.
 * `0001_schema.sql` — tables: profiles, style_preferences, merchants, products, looks (items as
   jsonb snapshot), battles, votes, saved_looks, likes, comments, follows, collections,
   wardrobe_items, outfits, editorial_stories, notifications, reports, audit_logs, ai_usage,

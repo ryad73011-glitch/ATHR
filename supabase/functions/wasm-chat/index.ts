@@ -214,7 +214,7 @@ Deno.serve(async (req: Request) => {
   try {
     const { data: products, error: productError } = await supabase
       .from('products')
-      .select('id,title,brand,category,universe,price,currency,in_stock')
+      .select('id,title,brand,category,universe,price,currency,in_stock,colors,occasions')
       .eq('in_stock', true)
       .eq('currency', 'DZD')
       .limit(60);

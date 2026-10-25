@@ -30,7 +30,7 @@ ATHR currently routes AI requests through OpenRouter's free router only; it does
 supabase secrets set OPENROUTER_API_KEY=YOUR_OPENROUTER_KEY
 ```
 
-Apply database migrations before deploying the updated AI functions. Migration `0004_ai_usage_guardrails.sql` is required for the atomic AI quota reservation used by both `ai-stylist` and `wasm-chat`.
+Apply database migrations before deploying the updated AI functions. Migration `20261025170000_ai_usage_guardrails.sql` is required for the atomic AI quota reservation used by both `ai-stylist` and `wasm-chat`.
 
 Payment-provider secrets are separate and are only needed if checkout is being configured:
 ```bash

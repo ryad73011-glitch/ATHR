@@ -21,6 +21,20 @@ const universes = ['CALM', 'CHAOS'];
 const PROVIDER = 'openrouter';
 const MODEL = 'openrouter/free';
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
+async function fetchWithTimeout(
+  url: string,
+  init: RequestInit,
+  timeoutMs = 30_000,
+): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
 
 function parseModelJson(content: string): Record<string, unknown> {
   try {
@@ -328,7 +342,7 @@ const system = [
       })),
     });
 
-    const response = await fetch(OPENROUTER_URL, {
+    const response = await fetchWithTimeout(OPENROUTER_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

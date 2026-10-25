@@ -54,7 +54,7 @@ create or replace function public.reserve_ai_usage(
 returns uuid
 language plpgsql
 security definer
-set search_path = public, pg_temp
+set search_path = pg_catalog, public, pg_temp
 as $$
 declare
   v_user_count integer;

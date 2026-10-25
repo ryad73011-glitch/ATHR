@@ -24,7 +24,7 @@ alter table public.ai_usage
 
 alter table public.ai_usage
   add constraint ai_usage_feature_check
-  check (feature in ('ai-stylist', 'wasm-chat'));
+  check (feature in ('ai-stylist', 'wasm-chat', 'classify-product-image'));
 
 alter table public.ai_usage
   drop constraint if exists ai_usage_provider_cost_nonnegative;

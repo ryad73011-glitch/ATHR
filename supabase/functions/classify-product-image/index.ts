@@ -186,23 +186,29 @@ Deno.serve(async (req: Request) => {
       return json({ error: 'The image model returned an unreadable classification. Please retry.' }, 502);
     }
 
-    const category = CATEGORIES.includes(String(parsed.category)) ? String(parsed.category) : 'tops';
+    const validCategory = typeof parsed.category === 'string' && CATEGORIES.includes(parsed.category);
+    const category = validCategory ? parsed.category : 'tops';
     const confidence = typeof parsed.confidence === 'number' && Number.isFinite(parsed.confidence)
       ? Math.max(0, Math.min(1, parsed.confidence))
       : 0;
-    const proposedAudience = AUDIENCES.includes(String(parsed.target_audience))
-      ? String(parsed.target_audience)
-      : 'unknown';
-    const targetAudience = confidence >= 0.75 ? proposedAudience : 'unknown';
+    const validAudience = typeof parsed.target_audience === 'string' && AUDIENCES.includes(parsed.target_audience);
+    const proposedAudience = validAudience ? parsed.target_audience : 'unknown';
+    const targetAudience = confidence >= 0.75 && validAudience ? proposedAudience : 'unknown';
     const colors = Array.isArray(parsed.colors)
       ? parsed.colors
           .filter((value): value is string => typeof value === 'string')
           .map((value) => value.slice(0, 40))
           .slice(0, 5)
       : [];
+    const validUniverse = parsed.universe === 'CALM' || parsed.universe === 'CHAOS';
     const universe = parsed.universe === 'CHAOS' ? 'CHAOS' : 'CALM';
     const description = typeof parsed.description === 'string' ? parsed.description.slice(0, 300) : '';
-    const reviewRequired = parsed.review_required === true || confidence < 0.75 || targetAudience === 'unknown';
+    const reviewRequired =
+      parsed.review_required === true ||
+      confidence < 0.75 ||
+      targetAudience === 'unknown' ||
+      !validCategory ||
+      !validUniverse;
 
     await logUsage('ok');
     return json({

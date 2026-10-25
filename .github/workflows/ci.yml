@@ -37,7 +37,7 @@ jobs:
           deno-version: v2.x
 
       - name: Typecheck Supabase Edge Functions
-        run: deno check supabase/functions/ai-stylist/index.ts supabase/functions/wasm-chat/index.ts
+        run: deno check supabase/functions/ai-stylist/index.ts supabase/functions/wasm-chat/index.ts supabase/functions/classify-product-image/index.ts
 
       - name: Setup Node
         uses: actions/setup-node@v4

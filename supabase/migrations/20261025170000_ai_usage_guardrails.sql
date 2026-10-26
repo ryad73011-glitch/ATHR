@@ -65,7 +65,7 @@ begin
     raise exception 'user_id is required';
   end if;
 
-  if p_feature is null or p_feature not in ('ai-stylist', 'wasm-chat') then
+  if p_feature is null or p_feature not in ('ai-stylist', 'wasm-chat', 'classify-product-image') then
     raise exception 'unsupported AI feature';
   end if;
 

@@ -41,7 +41,7 @@ create index if not exists ai_usage_created_at_idx
 
 -- Clients must not forge usage records or mutate quota accounting.
 drop policy if exists ai_insert on public.ai_usage;
-revoke insert, update, delete on public.ai_usage from anon, authenticated;
+revoke insert, update, delete, truncate, references, trigger on public.ai_usage from public, anon, authenticated;
 
 -- Reserves quota before calling an external AI provider. The transaction-scoped
 -- advisory locks make both the per-user and project-wide checks atomic.

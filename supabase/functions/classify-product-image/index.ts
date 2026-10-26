@@ -50,7 +50,7 @@ Deno.serve(async (req: Request) => {
     return json({ error: 'Supabase server configuration is incomplete' }, 500);
   }
 
-  const token = req.headers.get('Authorization')?.match(/^Bearer\\s+(.+)$/i)?.[1];
+  const token = req.headers.get('Authorization')?.match(/^Bearer\s+(.+)$/i)?.[1];
   if (!token) return json({ error: 'Authentication required' }, 401);
 
   const authClient = createClient(url, anonKey, {
@@ -188,9 +188,12 @@ Deno.serve(async (req: Request) => {
 
     const validCategory = typeof parsed.category === 'string' && CATEGORIES.includes(parsed.category);
     const category = validCategory ? parsed.category : 'tops';
-    const confidence = typeof parsed.confidence === 'number' && Number.isFinite(parsed.confidence)
-      ? Math.max(0, Math.min(1, parsed.confidence))
-      : 0;
+    const confidenceIsValid =
+      typeof parsed.confidence === 'number' &&
+      Number.isFinite(parsed.confidence) &&
+      parsed.confidence >= 0 &&
+      parsed.confidence <= 1;
+    const confidence = confidenceIsValid ? parsed.confidence as number : 0;
     const validAudience = typeof parsed.target_audience === 'string' && AUDIENCES.includes(parsed.target_audience);
     const proposedAudience = validAudience ? parsed.target_audience : 'unknown';
     const targetAudience = confidence >= 0.75 && validAudience ? proposedAudience : 'unknown';
@@ -205,6 +208,7 @@ Deno.serve(async (req: Request) => {
     const description = typeof parsed.description === 'string' ? parsed.description.slice(0, 300) : '';
     const reviewRequired =
       parsed.review_required === true ||
+      !confidenceIsValid ||
       confidence < 0.75 ||
       targetAudience === 'unknown' ||
       !validCategory ||

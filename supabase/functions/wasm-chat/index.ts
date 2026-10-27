@@ -223,20 +223,8 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const { data: products, error: productError } = await supabase
-      .from('products')
-      .select('id,title,brand,category,universe,price,currency,in_stock,colors,occasions')
-      .eq('in_stock', true)
-      .eq('currency', 'DZD')
-      .limit(60);
-
-    if (productError) {
-      console.error('WASM catalogue query failed');
-      return json({ error: 'Product catalogue is unavailable' }, 503);
-    }
-
-    const catalogue = products ?? [];
-
+    // Reserve quota before any catalogue reads so rejected requests cannot
+    // repeatedly query the live product table after the user's quota is spent.
     const { data: reservedUsageId, error: reservationError } =
       await supabase.rpc('reserve_ai_usage', {
         p_user_id: userId,
@@ -257,6 +245,21 @@ Deno.serve(async (req: Request) => {
 
     usageId = reservedUsageId;
     started = Date.now();
+
+    const { data: products, error: productError } = await supabase
+      .from('products')
+      .select('id,title,brand,category,universe,price,currency,in_stock,colors,occasions')
+      .eq('in_stock', true)
+      .eq('currency', 'DZD')
+      .limit(60);
+
+    if (productError) {
+      console.error('WASM catalogue query failed');
+      await logUsage('error');
+      return json({ error: 'Product catalogue is unavailable' }, 503);
+    }
+
+    const catalogue = products ?? [];
 
     const system = [
       'You are WASM, ATHR personal AI assistant.',

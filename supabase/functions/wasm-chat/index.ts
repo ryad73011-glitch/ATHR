@@ -1,5 +1,6 @@
 
 import { createClient } from 'npm:@supabase/supabase-js@2';
+import { readJsonLimited } from '../_shared/requestBody.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -108,17 +109,27 @@ Deno.serve(async (req: Request) => {
 
   const userId = auth.user.id;
 
-  let body: Record<string, unknown>;
-
-  try {
-    const value: unknown = await req.json();
-    if (!value || typeof value !== 'object' || Array.isArray(value)) {
-      return json({ error: 'Invalid request body' }, 400);
-    }
-    body = value as Record<string, unknown>;
-  } catch {
-    return json({ error: 'Invalid JSON body' }, 400);
+  const bodyRead = await readJsonLimited(req, 5000000);
+  if (!bodyRead.ok) {
+    return json(
+      {
+        error: bodyRead.reason === 'too_large'
+          ? 'Request body is too large'
+          : 'Invalid JSON body',
+      },
+      bodyRead.reason === 'too_large' ? 413 : 400,
+    );
   }
+
+  const parsedBody = bodyRead.value;
+  if (
+    parsedBody === null ||
+    typeof parsedBody !== 'object' ||
+    Array.isArray(parsedBody)
+  ) {
+    return json({ error: 'Invalid request body' }, 400);
+  }
+  const body = parsedBody as Record<string, unknown>;
 
   const message = body.message;
   const rawHistory = body.history ?? [];

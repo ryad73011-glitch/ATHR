@@ -39,6 +39,9 @@ jobs:
       - name: Typecheck Supabase Edge Functions
         run: deno check supabase/functions/ai-stylist/index.ts supabase/functions/wasm-chat/index.ts supabase/functions/classify-product-image/index.ts
 
+      - name: Test bounded AI request body parsing
+        run: deno test supabase/functions/_shared/requestBody_test.ts
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:

@@ -18,14 +18,27 @@ No env vars → demo mode. Everything works offline.
 cp .env.example .env
 # fill EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY
 supabase login && supabase link --project-ref YOUR_REF
-supabase db push                 # apply migrations
-supabase seed ... # or paste supabase/seed.sql into the SQL editor
+supabase migration list           # inspect local/remote history first
+# Do not run "supabase db push" against ATHR production until migration
+# history and schema drift have been reconciled and reviewed.
+supabase seed ... # only against a disposable/staging database
 ```
 
+**Production safety warning:** the connected ATHR database has timestamped migration versions that do not match the repository's legacy `0001_schema.sql`–`0003_rpc.sql` history. Reconcile this drift on a staging copy before applying any repository migration to production. The AI guardrail migration is a draft and has not been applied.
+
 ## 3. Edge function secrets
+
+ATHR currently routes AI requests through OpenRouter's free router only; it does not automatically fall back to a paid model. Configure the key as a server-side Supabase secret (never as an `EXPO_PUBLIC_*` variable):
+
 ```bash
-supabase secrets set AI_PROVIDER=openai AI_API_KEY=sk-... AI_MODEL=gpt-4o-mini
-supabase secrets set STRIPE_SECRET_KEY=sk_live_... STRIPE_PRICE_MONTHLY=price_... STRIPE_PRICE_ANNUAL=price_...
+supabase secrets set OPENROUTER_API_KEY=YOUR_OPENROUTER_KEY
+```
+
+Apply database migrations before deploying the updated AI functions. Migration `20261025170000_ai_usage_guardrails.sql` is required for the atomic AI quota reservation used by both `ai-stylist` and `wasm-chat`.
+
+Payment-provider secrets are separate and are only needed if checkout is being configured:
+```bash
+supabase secrets set STRIPE_SECRET_KEY=YOUR_STRIPE_SECRET_KEY STRIPE_PRICE_MONTHLY=YOUR_MONTHLY_PRICE_ID STRIPE_PRICE_ANNUAL=YOUR_ANNUAL_PRICE_ID
 ```
 
 ## 4. Native builds

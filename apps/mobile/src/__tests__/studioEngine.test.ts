@@ -58,4 +58,13 @@ describe('buildOutfit', () => {
     expect(poor.total_cost).toBeLessThanOrEqual(20000);
     for (const id of poor.product_ids) expect(demoProducts.some((p) => p.id === id)).toBe(true);
   });
+
+  it('does not claim a successful outfit when the catalogue is empty', () => {
+    const empty = buildOutfit([], req);
+    expect(empty.product_ids).toEqual([]);
+    expect(empty.total_cost).toBe(0);
+    expect(empty.messages[0].content).toContain('could not build a product-based outfit');
+    expect(empty.messages[0].content).not.toContain('Everything stays in your palette');
+    expect(empty.reasoning[0]).toContain('No in-stock catalogue items could be selected');
+  });
 });

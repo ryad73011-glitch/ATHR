@@ -187,20 +187,26 @@ export function buildOutfit(products: Product[], req: StudioRequest): StudioResu
   }
 
   const reasoning: string[] = [];
-  reasoning.push(`Built a ${req.universes.join(' + ')} look for "${req.occasion}" within ${Math.round(req.budget).toLocaleString()} ${req.currency}.`);
-  const paletteNote = req.palette.length ? ` Palette anchor: ${req.palette.join(', ')}.` : '';
-  reasoning.push(`Colour logic pairs neutrals with at most one accent.${paletteNote}`);
-  for (const c of chosen) {
-    const extras = c.reasons.length ? ` (${c.reasons.slice(0, 2).join(' ')})` : '';
-    reasoning.push(`• ${c.product.title} — ${c.product.brand}, ${c.product.price.toLocaleString()} ${c.product.currency}.${extras}`);
+  if (chosen.length > 0) {
+    reasoning.push(`Built a ${req.universes.join(' + ')} look for "${req.occasion}" within ${Math.round(req.budget).toLocaleString()} ${req.currency}.`);
+    const paletteNote = req.palette.length ? ` Palette anchor: ${req.palette.join(', ')}.` : '';
+    reasoning.push(`Colour logic pairs neutrals with at most one accent.${paletteNote}`);
+    for (const c of chosen) {
+      const extras = c.reasons.length ? ` (${c.reasons.slice(0, 2).join(' ')})` : '';
+      reasoning.push(`• ${c.product.title} — ${c.product.brand}, ${c.product.price.toLocaleString()} ${c.product.currency}.${extras}`);
+    }
+  } else {
+    reasoning.push(`No in-stock catalogue items could be selected for "${req.occasion}" within ${Math.round(req.budget).toLocaleString()} ${req.currency}.`);
   }
-  reasoning.push(`Total ${spend.toLocaleString()} ${req.currency}, leaving ${(req.budget - spend).toLocaleString()} unspent.`);
+  reasoning.push(`Selected items total ${spend.toLocaleString()} ${req.currency}, leaving ${(req.budget - spend).toLocaleString()} unspent.`);
 
-  const assistantText = [
-    `Here is a ${req.universes.join(' and ')} direction for your ${req.occasion} within budget.`,
-    ...chosen.map((c) => `${c.product.title} (${c.product.brand}) — ${c.product.price.toLocaleString()} ${c.product.currency}`),
-    `Everything stays in your palette, and the total lands ${spend > req.budget ? 'over' : 'under'} budget at ${spend.toLocaleString()} ${req.currency}.`,
-  ].join('\n');
+  const assistantText = chosen.length
+    ? [
+        `Here is a ${req.universes.join(' and ')} direction for your ${req.occasion} within budget.`,
+        ...chosen.map((c) => `${c.product.title} (${c.product.brand}) — ${c.product.price.toLocaleString()} ${c.product.currency}`),
+        `Selected items total ${spend.toLocaleString()} ${req.currency}, within your budget.`,
+      ].join('\n')
+    : 'I could not build a product-based outfit from the available catalogue. Try again or adjust your budget, occasion, or style preferences.';
 
   const message: StudioMessage = {
     id: `msg_${Date.now()}`,

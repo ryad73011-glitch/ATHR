@@ -1,5 +1,6 @@
 
 import { createClient } from 'npm:@supabase/supabase-js@2';
+import { readJsonLimited } from '../_shared/requestBody.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -20,6 +21,17 @@ const json = (body: unknown, status = 200) =>
 const MODEL = 'openrouter/free';
 const OPENROUTER_URL =
   'https://openrouter.ai/api/v1/chat/completions';
+async function fetchWithTimeout(
+  url: string,
+  init: RequestInit,
+  timeoutMs = 30_000,
+): Promise<Response> {
+  // Keep the abort signal active while the response body is being consumed too.
+  return fetch(url, {
+    ...init,
+    signal: AbortSignal.timeout(timeoutMs),
+  });
+}
 
 type ChatMessage = {
   role: 'user' | 'assistant';
@@ -95,17 +107,29 @@ Deno.serve(async (req: Request) => {
     return json({ error: 'Invalid or expired session' }, 401);
   }
 
-  let body: Record<string, unknown>;
+  const userId = auth.user.id;
 
-  try {
-    const value: unknown = await req.json();
-    if (!value || typeof value !== 'object' || Array.isArray(value)) {
-      return json({ error: 'Invalid request body' }, 400);
-    }
-    body = value as Record<string, unknown>;
-  } catch {
-    return json({ error: 'Invalid JSON body' }, 400);
+  const bodyRead = await readJsonLimited(req, 5000000);
+  if (!bodyRead.ok) {
+    return json(
+      {
+        error: bodyRead.reason === 'too_large'
+          ? 'Request body is too large'
+          : 'Invalid JSON body',
+      },
+      bodyRead.reason === 'too_large' ? 413 : 400,
+    );
   }
+
+  const parsedBody = bodyRead.value;
+  if (
+    parsedBody === null ||
+    typeof parsedBody !== 'object' ||
+    Array.isArray(parsedBody)
+  ) {
+    return json({ error: 'Invalid request body' }, 400);
+  }
+  const body = parsedBody as Record<string, unknown>;
 
   const message = body.message;
   const rawHistory = body.history ?? [];
@@ -185,16 +209,64 @@ Deno.serve(async (req: Request) => {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
+  let usageId: string | null = null;
+  let started = Date.now();
+  let promptTokens = 0;
+  let completionTokens = 0;
+  let providerCost: number | null = null;
+
+  async function logUsage(status: 'ok' | 'error') {
+    if (!usageId) return;
+
+    const { error } = await supabase
+      .from('ai_usage')
+      .update({
+        prompt_tokens: promptTokens,
+        completion_tokens: completionTokens,
+        provider_cost: providerCost,
+        latency_ms: Date.now() - started,
+        status,
+      })
+      .eq('id', usageId)
+      .eq('user_id', userId);
+
+    if (error) console.error('WASM usage logging failed');
+  }
+
   try {
+    // Reserve quota before any catalogue reads so rejected requests cannot
+    // repeatedly query the live product table after the user's quota is spent.
+    const { data: reservedUsageId, error: reservationError } =
+      await supabase.rpc('reserve_ai_usage', {
+        p_user_id: userId,
+        p_feature: 'wasm-chat',
+      });
+
+    if (reservationError) {
+      console.error('WASM usage reservation failed');
+      return json({ error: 'AI usage controls are unavailable' }, 503);
+    }
+
+    if (typeof reservedUsageId !== 'string' || reservedUsageId.length === 0) {
+      return json(
+        { error: 'AI usage limit reached. Please try again later.' },
+        429,
+      );
+    }
+
+    usageId = reservedUsageId;
+    started = Date.now();
+
     const { data: products, error: productError } = await supabase
       .from('products')
-      .select('id,title,brand,category,universe,price,currency,in_stock')
+      .select('id,title,brand,category,universe,price,currency,in_stock,colors,occasions')
       .eq('in_stock', true)
       .eq('currency', 'DZD')
       .limit(60);
 
     if (productError) {
       console.error('WASM catalogue query failed');
+      await logUsage('error');
       return json({ error: 'Product catalogue is unavailable' }, 503);
     }
 
@@ -230,7 +302,7 @@ Deno.serve(async (req: Request) => {
         ]
       : message.trim();
 
-    const response = await fetch(OPENROUTER_URL, {
+    const response = await fetchWithTimeout(OPENROUTER_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -261,13 +333,35 @@ Deno.serve(async (req: Request) => {
 
     if (!response.ok) {
       console.error(`OpenRouter returned HTTP ${response.status}`);
+      await logUsage('error');
       return json({ error: 'OpenRouter request failed; no paid fallback was used' }, 502);
     }
 
     const result = await response.json();
+    const usage = result?.usage;
+    promptTokens =
+      typeof usage?.prompt_tokens === 'number' &&
+      Number.isFinite(usage.prompt_tokens) &&
+      usage.prompt_tokens >= 0
+        ? Math.floor(usage.prompt_tokens)
+        : 0;
+    completionTokens =
+      typeof usage?.completion_tokens === 'number' &&
+      Number.isFinite(usage.completion_tokens) &&
+      usage.completion_tokens >= 0
+        ? Math.floor(usage.completion_tokens)
+        : 0;
+    providerCost =
+      typeof usage?.cost === 'number' &&
+      Number.isFinite(usage.cost) &&
+      usage.cost >= 0
+        ? usage.cost
+        : null;
+
     const content = result.choices?.[0]?.message?.content;
 
     if (typeof content !== 'string' || !content.trim()) {
+      await logUsage('error');
       return json({ error: 'The AI returned an empty response' }, 502);
     }
 
@@ -313,6 +407,8 @@ Deno.serve(async (req: Request) => {
 
     const now = new Date().toISOString();
 
+    await logUsage('ok');
+
     return json({
       configured: true,
       result: {
@@ -335,6 +431,7 @@ Deno.serve(async (req: Request) => {
       },
     });
   } catch {
+    await logUsage('error');
     console.error('WASM chat processing failed');
     return json({ error: 'WASM could not process this message' }, 502);
   }

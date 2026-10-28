@@ -1,4 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
+import { readJsonLimited } from '../_shared/requestBody.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -21,6 +22,17 @@ const universes = ['CALM', 'CHAOS'];
 const PROVIDER = 'openrouter';
 const MODEL = 'openrouter/free';
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
+async function fetchWithTimeout(
+  url: string,
+  init: RequestInit,
+  timeoutMs = 30_000,
+): Promise<Response> {
+  // Keep the abort signal active while the response body is being consumed too.
+  return fetch(url, {
+    ...init,
+    signal: AbortSignal.timeout(timeoutMs),
+  });
+}
 
 function parseModelJson(content: string): Record<string, unknown> {
   try {
@@ -100,23 +112,27 @@ Deno.serve(async (req: Request) => {
 
   const userId = authData.user.id;
 
-  let body: Record<string, unknown>;
-
-  try {
-    const parsed: unknown = await req.json();
-
-    if (
-      parsed === null ||
-      typeof parsed !== 'object' ||
-      Array.isArray(parsed)
-    ) {
-      return json({ error: 'Invalid request body' }, 400);
-    }
-
-    body = parsed as Record<string, unknown>;
-  } catch {
-    return json({ error: 'Invalid JSON body' }, 400);
+  const bodyRead = await readJsonLimited(req, 32768);
+  if (!bodyRead.ok) {
+    return json(
+      {
+        error: bodyRead.reason === 'too_large'
+          ? 'Request body is too large'
+          : 'Invalid JSON body',
+      },
+      bodyRead.reason === 'too_large' ? 413 : 400,
+    );
   }
+
+  const parsedBody = bodyRead.value;
+  if (
+    parsedBody === null ||
+    typeof parsedBody !== 'object' ||
+    Array.isArray(parsedBody)
+  ) {
+    return json({ error: 'Invalid request body' }, 400);
+  }
+  const body = parsedBody as Record<string, unknown>;
 
   const occasion = body.occasion;
   const budget = body.budget;
@@ -206,20 +222,42 @@ Deno.serve(async (req: Request) => {
     },
   );
 
+  const { data: usageId, error: reservationError } = await supabase.rpc(
+    'reserve_ai_usage',
+    { p_user_id: userId, p_feature: 'ai-stylist' },
+  );
+
+  if (reservationError) {
+    console.error('AI usage reservation failed');
+    return json({ error: 'AI usage controls are unavailable' }, 503);
+  }
+
+  if (typeof usageId !== 'string' || usageId.length === 0) {
+    return json(
+      { error: 'AI usage limit reached. Please try again later.' },
+      429,
+    );
+  }
+
   const started = Date.now();
+  let promptTokens = 0;
+  let completionTokens = 0;
+  let providerCost: number | null = null;
 
   async function logUsage(
     status: 'ok' | 'error' | 'fallback',
   ) {
     const { error } = await supabase
       .from('ai_usage')
-      .insert({
-        user_id: userId,
-        model: MODEL,
-        provider: PROVIDER,
+      .update({
+        prompt_tokens: promptTokens,
+        completion_tokens: completionTokens,
+        provider_cost: providerCost,
         latency_ms: Date.now() - started,
         status,
-      });
+      })
+      .eq('id', usageId)
+      .eq('user_id', userId);
 
     if (error) {
       // Never log API keys, authorization headers, or user tokens.
@@ -241,7 +279,7 @@ Deno.serve(async (req: Request) => {
     let query = supabase
       .from('products')
       .select(
-        'id,title,brand,category,universe,price,currency,in_stock',
+        'id,title,brand,category,universe,price,currency,in_stock,colors,occasions',
       )
       .eq('in_stock', true)
       .eq('currency', currency)
@@ -262,26 +300,18 @@ Deno.serve(async (req: Request) => {
 
     
 const system = [
-  'You are WASM, the personal AI assistant inside the ATHR app.',
-  'You are a general-purpose conversational assistant, not only a shopping or fashion bot.',
-  'Answer general knowledge questions about science, history, culture, technology, language, relationships, learning, and everyday life naturally and helpfully.',
-  'Reply in the language used by the user. Understand Algerian Darija, Arabic, French, and English when possible.',
-  'For general questions, answer directly. Do not require products or catalogue results.',
-  'Act as a personal style coach when the user asks about clothing, appearance, outfits, or personal style.',
-  'Help the user discover their preferences through respectful follow-up questions about lifestyle, taste, comfort, budget, and goals.',
-  'Do not claim to diagnose personality or determine character from facial appearance.',
-  'For appearance advice, use only information the user provides, such as height, fit preferences, body proportions, desired look, and optional photos when image analysis is actually supported.',
-  'Do not claim to see or analyse an image unless image content is actually provided to the model.',
-  'Recommend products only when relevant to the request and only from the supplied catalogue.',
-  'Never invent product IDs, prices, stock status, or purchase links.',
-  'If the catalogue is empty or no product fits, still answer the user with practical advice and explain briefly that no matching ATHR products are currently available.',
-  'Return one valid JSON object without Markdown, using exactly these keys: product_ids, reasoning, message.',
-  'product_ids must contain only IDs from the supplied catalogue and may be an empty array.',
-  'reasoning must be an array of short strings; it may be empty.',
-  'message must contain the actual helpful answer, not a generic no-products error.',
-  'Recommend no more than 6 products.',
-  'Respect the requested budget and currency when recommending products.',
-  'Never fabricate facts. State uncertainty when needed.',
+  'You are ATHR personal fashion stylist. Your task is to create practical outfit suggestions from the supplied in-stock product catalogue.',
+  'Focus on the requested occasion, budget, currency, CALM or CHAOS style universe, and preferred colour palette.',
+  'Use only supplied catalogue data. Never invent products, brands, IDs, prices, stock status, availability, or purchase links.',
+  'Choose at most 6 product IDs from the supplied catalogue. Prefer items that fit the requested universe, occasion, and palette.',
+  'Keep the combined price of selected items within the requested budget. The server will verify product IDs and prices.',
+  'If no products fit, return an empty product_ids array and still give useful general styling advice without pretending a product was selected.',
+  'The message should explain the styling direction only. Do not list product names or prices in the message; the app displays server-verified product cards separately.',
+  'Return exactly one valid JSON object with keys: product_ids, reasoning, message. Do not use Markdown or surrounding text.',
+  'product_ids must be an array of catalogue IDs. reasoning must be an array of up to 6 short strings. message must be a concise, helpful styling explanation.',
+  'When the user note clearly indicates Arabic, Algerian Darija, French, or English, reply in that language. Otherwise use concise English.',
+  'Do not claim to analyse an image, body shape, or visual detail; this endpoint does not receive image content.',
+  'State uncertainty where the catalogue does not provide enough information. Never fabricate facts.',
 ].join(' ');
 
     const userPrompt = JSON.stringify({
@@ -301,10 +331,12 @@ const system = [
         universe: product.universe,
         price: product.price,
         currency: product.currency,
+        colors: product.colors,
+        occasions: product.occasions,
       })),
     });
 
-    const response = await fetch(OPENROUTER_URL, {
+    const response = await fetchWithTimeout(OPENROUTER_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -341,6 +373,26 @@ const system = [
     }
 
     const data = await response.json();
+
+    const usage = data?.usage;
+    promptTokens =
+      typeof usage?.prompt_tokens === 'number' &&
+      Number.isFinite(usage.prompt_tokens) &&
+      usage.prompt_tokens >= 0
+        ? Math.floor(usage.prompt_tokens)
+        : 0;
+    completionTokens =
+      typeof usage?.completion_tokens === 'number' &&
+      Number.isFinite(usage.completion_tokens) &&
+      usage.completion_tokens >= 0
+        ? Math.floor(usage.completion_tokens)
+        : 0;
+    providerCost =
+      typeof usage?.cost === 'number' &&
+      Number.isFinite(usage.cost) &&
+      usage.cost >= 0
+        ? usage.cost
+        : null;
 
     const content = data.choices?.[0]?.message?.content;
 

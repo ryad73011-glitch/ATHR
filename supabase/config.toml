@@ -16,5 +16,11 @@ additional_redirect_urls = ["athr://", "https://*.e2b.app"]
 [functions.ai-stylist]
 verify_jwt = true
 
+[functions.wasm-chat]
+verify_jwt = true
+
+[functions.classify-product-image]
+verify_jwt = true
+
 [functions.create-checkout]
 verify_jwt = true

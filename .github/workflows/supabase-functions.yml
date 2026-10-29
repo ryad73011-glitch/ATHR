@@ -39,4 +39,8 @@ jobs:
         run: |
           deno check supabase/functions/ai-stylist/index.ts
           deno check supabase/functions/wasm-chat/index.ts
-          deno check supabase/functions/classify-product-image/index.ts
+          if [ -f supabase/functions/classify-product-image/index.ts ]; then
+            deno check supabase/functions/classify-product-image/index.ts
+          else
+            echo 'Classifier not present on this branch; check will run when added.'
+          fi

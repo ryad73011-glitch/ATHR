@@ -100,10 +100,25 @@ Deno.serve(async (req: Request) => {
 
   const userId = authData.user.id;
 
+  // Reject obviously oversized requests before parsing. The text-length check also
+  // covers requests without a trustworthy Content-Length header.
+  const contentLength = Number(req.headers.get('content-length') ?? 0);
+  const MAX_REQUEST_BYTES = 16 * 1024;
+
+  if (Number.isFinite(contentLength) && contentLength > MAX_REQUEST_BYTES) {
+    return json({ error: 'Request body too large' }, 413);
+  }
+
   let body: Record<string, unknown>;
 
   try {
-    const parsed: unknown = await req.json();
+    const rawBody = await req.text();
+
+    if (new TextEncoder().encode(rawBody).byteLength > MAX_REQUEST_BYTES) {
+      return json({ error: 'Request body too large' }, 413);
+    }
+
+    const parsed: unknown = JSON.parse(rawBody);
 
     if (
       parsed === null ||
@@ -306,6 +321,7 @@ const system = [
 
     const response = await fetch(OPENROUTER_URL, {
       method: 'POST',
+      signal: AbortSignal.timeout(20_000),
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${apiKey}`,

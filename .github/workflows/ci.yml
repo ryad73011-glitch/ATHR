@@ -8,6 +8,7 @@ on:
       - "arena/**"
       - "feat/**"
       - "fix/**"
+      - "beta/**"
 
   pull_request:
     branches:

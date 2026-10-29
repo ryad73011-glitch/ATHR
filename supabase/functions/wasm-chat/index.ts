@@ -84,10 +84,6 @@ Deno.serve(async (req: Request) => {
     return json({ error: 'Supabase server configuration is incomplete' }, 500);
   }
 
-  if (!openRouterKey) {
-    return json({ error: 'OPENROUTER_API_KEY is not configured' }, 503);
-  }
-
   const token = req.headers
     .get('Authorization')
     ?.match(/^Bearer\s+(.+)$/i)?.[1];
@@ -108,6 +104,11 @@ Deno.serve(async (req: Request) => {
   }
 
   const userId = auth.user.id;
+
+  // Check provider configuration only after authenticating the caller.
+  if (!openRouterKey) {
+    return json({ error: 'AI service is not configured' }, 503);
+  }
 
   const bodyRead = await readJsonLimited(req, 5000000);
   if (!bodyRead.ok) {

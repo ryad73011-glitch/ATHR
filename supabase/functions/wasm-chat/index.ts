@@ -95,10 +95,44 @@ Deno.serve(async (req: Request) => {
     return json({ error: 'Invalid or expired session' }, 401);
   }
 
+  // Bound memory use before JSON parsing. Image payloads are base64 encoded,
+  // so allow enough room for the existing 4.5 MB aggregate image limit plus JSON.
+  const MAX_REQUEST_BYTES = 6 * 1024 * 1024;
+  const contentLength = Number(req.headers.get('content-length') ?? 0);
+  if (Number.isFinite(contentLength) && contentLength > MAX_REQUEST_BYTES) {
+    return json({ error: 'Request body too large' }, 413);
+  }
+
   let body: Record<string, unknown>;
 
   try {
-    const value: unknown = await req.json();
+    const reader = req.body?.getReader();
+    if (!reader) {
+      return json({ error: 'Invalid JSON body' }, 400);
+    }
+
+    const chunks: Uint8Array[] = [];
+    let totalBytes = 0;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (!value) continue;
+      totalBytes += value.byteLength;
+      if (totalBytes > MAX_REQUEST_BYTES) {
+        await reader.cancel();
+        return json({ error: 'Request body too large' }, 413);
+      }
+      chunks.push(value);
+    }
+
+    const bytes = new Uint8Array(totalBytes);
+    let offset = 0;
+    for (const chunk of chunks) {
+      bytes.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+
+    const value: unknown = JSON.parse(new TextDecoder().decode(bytes));
     if (!value || typeof value !== 'object' || Array.isArray(value)) {
       return json({ error: 'Invalid request body' }, 400);
     }
@@ -232,6 +266,7 @@ Deno.serve(async (req: Request) => {
 
     const response = await fetch(OPENROUTER_URL, {
       method: 'POST',
+      signal: AbortSignal.timeout(20_000),
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${openRouterKey}`,

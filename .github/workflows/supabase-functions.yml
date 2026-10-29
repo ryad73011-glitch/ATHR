@@ -7,9 +7,11 @@ on:
       - "ci/**"
       - "fix/**"
       - "feat/**"
+      - "beta/**"
     paths:
       - "supabase/functions/ai-stylist/**"
       - "supabase/functions/wasm-chat/**"
+      - "supabase/functions/classify-product-image/**"
       - ".github/workflows/supabase-functions.yml"
   pull_request:
     branches:
@@ -36,3 +38,8 @@ jobs:
         run: |
           deno check supabase/functions/ai-stylist/index.ts
           deno check supabase/functions/wasm-chat/index.ts
+          if [ -f supabase/functions/classify-product-image/index.ts ]; then
+            deno check supabase/functions/classify-product-image/index.ts
+          else
+            echo 'Classifier not present on this branch; check will run when added.'
+          fi

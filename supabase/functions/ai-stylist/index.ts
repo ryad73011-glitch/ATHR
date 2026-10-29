@@ -211,6 +211,14 @@ Deno.serve(async (req: Request) => {
     );
   }
 
+  // A local fallback is not an AI request and must not consume an AI quota.
+  if (!apiKey) {
+    return json({
+      configured: false,
+      result: null,
+    });
+  }
+
   const supabase = createClient(
     supabaseUrl,
     serviceRoleKey,
@@ -263,16 +271,6 @@ Deno.serve(async (req: Request) => {
       // Never log API keys, authorization headers, or user tokens.
       console.error('AI usage logging failed');
     }
-  }
-
-  if (!apiKey) {
-    await logUsage('fallback');
-
-    // The existing mobile client can use its local fallback.
-    return json({
-      configured: false,
-      result: null,
-    });
   }
 
   try {

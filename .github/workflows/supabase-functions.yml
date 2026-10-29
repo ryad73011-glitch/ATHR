@@ -7,13 +7,16 @@ on:
       - "ci/**"
       - "fix/**"
       - "feat/**"
+      - "beta/**"
     paths:
       - "supabase/functions/ai-stylist/**"
       - "supabase/functions/wasm-chat/**"
+      - "supabase/functions/classify-product-image/**"
       - ".github/workflows/supabase-functions.yml"
   pull_request:
     branches:
       - main
+      - "beta/**"
     paths:
       - "supabase/functions/ai-stylist/**"
       - "supabase/functions/wasm-chat/**"
@@ -36,3 +39,4 @@ jobs:
         run: |
           deno check supabase/functions/ai-stylist/index.ts
           deno check supabase/functions/wasm-chat/index.ts
+          deno check supabase/functions/classify-product-image/index.ts

@@ -100,10 +100,55 @@ Deno.serve(async (req: Request) => {
 
   const userId = authData.user.id;
 
+  // Reject obviously oversized requests before parsing. The text-length check also
+  // covers requests without a trustworthy Content-Length header.
+  const contentLength = Number(req.headers.get('content-length') ?? 0);
+  const MAX_REQUEST_BYTES = 16 * 1024;
+
+  if (Number.isFinite(contentLength) && contentLength > MAX_REQUEST_BYTES) {
+    return json({ error: 'Request body too large' }, 413);
+  }
+
   let body: Record<string, unknown>;
 
   try {
-    const parsed: unknown = await req.json();
+    // Read the body incrementally so a missing or dishonest Content-Length
+    // cannot force an unbounded allocation before the size check.
+    const reader = req.body?.getReader();
+
+    if (!reader) {
+      return json({ error: 'Invalid JSON body' }, 400);
+    }
+
+    const chunks: Uint8Array[] = [];
+    let totalBytes = 0;
+
+    while (true) {
+      const { done, value } = await reader.read();
+
+      if (done) break;
+      if (!value) continue;
+
+      totalBytes += value.byteLength;
+
+      if (totalBytes > MAX_REQUEST_BYTES) {
+        await reader.cancel();
+        return json({ error: 'Request body too large' }, 413);
+      }
+
+      chunks.push(value);
+    }
+
+    const bodyBytes = new Uint8Array(totalBytes);
+    let offset = 0;
+
+    for (const chunk of chunks) {
+      bodyBytes.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+
+    const rawBody = new TextDecoder().decode(bodyBytes);
+    const parsed: unknown = JSON.parse(rawBody);
 
     if (
       parsed === null ||
@@ -306,6 +351,7 @@ const system = [
 
     const response = await fetch(OPENROUTER_URL, {
       method: 'POST',
+      signal: AbortSignal.timeout(20_000),
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${apiKey}`,

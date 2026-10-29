@@ -1,0 +1,38 @@
+name: Supabase Edge Function checks
+
+on:
+  push:
+    branches:
+      - main
+      - "ci/**"
+      - "fix/**"
+      - "feat/**"
+    paths:
+      - "supabase/functions/ai-stylist/**"
+      - "supabase/functions/wasm-chat/**"
+      - ".github/workflows/supabase-functions.yml"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "supabase/functions/ai-stylist/**"
+      - "supabase/functions/wasm-chat/**"
+      - ".github/workflows/supabase-functions.yml"
+  workflow_dispatch:
+
+jobs:
+  edge-function-typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Type-check AI Edge Functions
+        run: |
+          deno check supabase/functions/ai-stylist/index.ts
+          deno check supabase/functions/wasm-chat/index.ts

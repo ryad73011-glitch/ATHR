@@ -284,7 +284,7 @@ React.useEffect(() => {
         await ImagePicker.launchImageLibraryAsync({
           mediaTypes: ['images'],
           allowsMultipleSelection: false,
-          quality: 0.65,
+          quality: 0.3,
           base64: true,
         });
 
@@ -298,11 +298,32 @@ React.useEffect(() => {
           mimeType === 'image/png' || mimeType === 'image/webp'
             ? mimeType
             : 'image/jpeg';
+        const payload = {
+          mimeType: supportedMime,
+          base64: asset.base64,
+        };
+        const maxImageCharacters = 1_500_000;
+        const currentCharacters = imagePayloads.reduce(
+          (total, image) => total + image.base64.length,
+          0,
+        );
+
+        // Keep the JSON request comfortably below common edge-function body
+        // limits. The picker also compresses images before base64 encoding.
+        if (
+          payload.base64.length > maxImageCharacters ||
+          currentCharacters + payload.base64.length > maxImageCharacters
+        ) {
+          toast.show(
+            'This photo is too large to send. Choose a smaller image and try again.',
+          );
+          return;
+        }
 
         setImages((current) => [...current, uri].slice(-4));
         setImagePayloads((current) => [
           ...current,
-          { mimeType: supportedMime, base64: asset.base64! },
+          payload,
         ].slice(-4));
       } else {
         toast.show('Could not read this image. Please choose another photo.');

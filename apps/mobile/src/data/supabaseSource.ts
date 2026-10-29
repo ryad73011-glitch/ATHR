@@ -876,9 +876,31 @@ async updatePassword(password) {
       );
 
       if (error) {
-        throw new Error(
-          'WASM chat request failed. Check Supabase deployment and configuration.',
-        );
+        // Preserve the Edge Function's response message so upload, auth,
+        // payload-size, and provider failures can be diagnosed accurately.
+        let detail = error.message;
+        const context = (error as { context?: Response }).context;
+
+        if (context && typeof context.clone === 'function') {
+          try {
+            const payload = (await context.clone().json()) as {
+              error?: unknown;
+              message?: unknown;
+            };
+            if (typeof payload.error === 'string' && payload.error.trim()) {
+              detail = payload.error;
+            } else if (
+              typeof payload.message === 'string' &&
+              payload.message.trim()
+            ) {
+              detail = payload.message;
+            }
+          } catch {
+            // Some network failures have no JSON response body.
+          }
+        }
+
+        throw new Error(`WASM chat request failed: ${detail}`);
       }
 
       const body = data as {

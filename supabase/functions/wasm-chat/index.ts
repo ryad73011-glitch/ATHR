@@ -260,8 +260,37 @@ Deno.serve(async (req: Request) => {
     });
 
     if (!response.ok) {
+      // Surface a short, sanitized provider explanation so vision/model and
+      // payload failures can be diagnosed without exposing request headers.
+      let providerMessage = '';
+      try {
+        const providerBody: unknown = await response.json();
+        if (providerBody && typeof providerBody === 'object') {
+          const root = providerBody as Record<string, unknown>;
+          const providerError = root.error;
+          if (typeof providerError === 'string') {
+            providerMessage = providerError;
+          } else if (
+            providerError &&
+            typeof providerError === 'object' &&
+            typeof (providerError as Record<string, unknown>).message === 'string'
+          ) {
+            providerMessage = (providerError as Record<string, unknown>).message as string;
+          }
+        }
+      } catch {
+        // Keep the HTTP status as the fallback diagnostic.
+      }
+
+      const safeMessage = providerMessage
+        .replace(/[\r\n]+/g, ' ')
+        .slice(0, 240);
       console.error(`OpenRouter returned HTTP ${response.status}`);
-      return json({ error: 'OpenRouter request failed; no paid fallback was used' }, 502);
+      return json({
+        error: safeMessage
+          ? `OpenRouter request failed (HTTP ${response.status}): ${safeMessage}`
+          : `OpenRouter request failed (HTTP ${response.status}); no paid fallback was used`,
+      }, 502);
     }
 
     const result = await response.json();

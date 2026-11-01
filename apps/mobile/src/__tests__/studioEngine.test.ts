@@ -67,8 +67,6 @@ describe('buildOutfit', () => {
     expect(empty.messages[0].content).not.toContain('Everything stays in your palette');
     expect(empty.reasoning[0]).toContain('No in-stock catalogue items could be selected');
   });
-});
-
   it('does not recommend products from an unselected universe', () => {
     const chaosOnly = demoProducts.filter((product) => product.universe === 'CHAOS');
     expect(chaosOnly.length).toBeGreaterThan(0);
@@ -80,3 +78,4 @@ describe('buildOutfit', () => {
     expect(result.total_cost).toBe(0);
     expect(result.messages[0].content).toContain('could not build a product-based outfit');
   });
+});

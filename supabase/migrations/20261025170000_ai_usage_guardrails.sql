@@ -43,6 +43,18 @@ create index if not exists ai_usage_created_at_idx
 drop policy if exists ai_insert on public.ai_usage;
 revoke insert, update, delete, truncate, references, trigger on public.ai_usage from public, anon, authenticated;
 
+-- Older migrations also granted column-level INSERT/UPDATE privileges.
+-- Table-level REVOKE does not remove those column grants.
+revoke insert (
+  id, user_id, model, provider, prompt_tokens, completion_tokens,
+  latency_ms, status, created_at
+) on table public.ai_usage from public, anon, authenticated;
+
+revoke update (
+  id, user_id, model, provider, prompt_tokens, completion_tokens,
+  latency_ms, status, created_at
+) on table public.ai_usage from public, anon, authenticated;
+
 -- Reserves quota before calling an external AI provider. The transaction-scoped
 -- advisory locks make both the per-user and project-wide checks atomic.
 -- Safe defaults: 20 requests per user and 200 requests per project per rolling

@@ -10,6 +10,12 @@ export async function readJsonLimited(
   req: Request,
   maxBytes: number,
 ): Promise<LimitedJsonResult> {
+  // Validate the limit before acquiring a reader, so invalid internal
+  // configuration cannot leave the request stream locked.
+  if (!Number.isSafeInteger(maxBytes) || maxBytes < 1) {
+    return { ok: false, reason: 'invalid_json' };
+  }
+
   const contentLength = req.headers.get('content-length');
   if (
     contentLength &&
@@ -20,7 +26,7 @@ export async function readJsonLimited(
   }
 
   const reader = req.body?.getReader();
-  if (!reader || !Number.isSafeInteger(maxBytes) || maxBytes < 1) {
+  if (!reader) {
     return { ok: false, reason: 'invalid_json' };
   }
 

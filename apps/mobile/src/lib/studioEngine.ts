@@ -157,7 +157,11 @@ function scoreProduct(p: Product, req: StudioRequest): Scored {
 
 /** Pick one item per core category within the remaining budget. */
 export function buildOutfit(products: Product[], req: StudioRequest): StudioResult {
-  const scored = products.map((p) => scoreProduct(p, req));
+  // A selected style universe is a hard constraint, not just a ranking signal.
+  const eligibleProducts = req.universes.length > 0
+    ? products.filter((product) => req.universes.includes(product.universe))
+    : products;
+  const scored = eligibleProducts.map((p) => scoreProduct(p, req));
   const byCat = new Map<Category, Scored[]>();
   for (const s of scored) {
     const list = byCat.get(s.product.category) ?? [];

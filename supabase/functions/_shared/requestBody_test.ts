@@ -33,3 +33,17 @@ Deno.test('readJsonLimited rejects malformed JSON under the byte limit', async (
     throw new Error('Expected malformed JSON to be rejected');
   }
 });
+
+Deno.test('readJsonLimited rejects an invalid limit without locking the request body', async () => {
+  const req = new Request('https://example.test', {
+    method: 'POST',
+    body: JSON.stringify({ message: 'ok' }),
+  });
+  const result = await readJsonLimited(req, 0);
+  if (result.ok || result.reason !== 'invalid_json') {
+    throw new Error('Expected an invalid byte limit to be rejected');
+  }
+  if (req.body?.locked) {
+    throw new Error('Invalid byte limit must not lock the request body');
+  }
+});

@@ -71,7 +71,7 @@ describe('buildOutfit', () => {
     const chaosOnly = demoProducts.filter((product) => product.universe === 'CHAOS');
     expect(chaosOnly.length).toBeGreaterThan(0);
 
-    const calmRequest = { ...req, universes: ['CALM'] };
+    const calmRequest: StudioRequest = { ...req, universes: ['CALM'] };
     const result = buildOutfit(chaosOnly, calmRequest);
 
     expect(result.product_ids).toEqual([]);

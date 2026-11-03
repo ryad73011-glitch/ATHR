@@ -57,8 +57,9 @@ revoke update (
 
 -- Reserves quota before calling an external AI provider. The transaction-scoped
 -- advisory locks make both the per-user and project-wide checks atomic.
--- Safe defaults: 20 requests per user and 200 requests per project per rolling
--- 24 hours, shared across both AI endpoints. Tune only after observing real usage.
+-- Safe defaults for the OpenRouter free tier: 20 requests per user and 50 per
+-- project per rolling 24 hours, plus 20 per project per rolling minute. Shared
+-- across all AI features so reservations cannot exceed the provider's free cap.
 create or replace function public.reserve_ai_usage(
   p_user_id uuid,
   p_feature text
@@ -71,6 +72,7 @@ as $$
 declare
   v_user_count integer;
   v_project_count integer;
+  v_project_minute_count integer;
   v_id uuid;
 begin
   if p_user_id is null then
@@ -97,12 +99,22 @@ begin
   end if;
 
   select count(*)::integer
+    into v_project_minute_count
+    from public.ai_usage
+    where server_reserved
+      and created_at >= now() - interval '1 minute';
+
+  if v_project_minute_count >= 20 then
+    return null;
+  end if;
+
+  select count(*)::integer
     into v_project_count
     from public.ai_usage
     where server_reserved
       and created_at >= now() - interval '24 hours';
 
-  if v_project_count >= 200 then
+  if v_project_count >= 50 then
     return null;
   end if;
 
